@@ -19,7 +19,7 @@
 - [x] Simple prompt template
 - [x] CLI interface for testing
 
-## Phase 2: Memory (Partial)
+## Phase 2: Memory (Complete)
 **Goal**: Persistent context across sessions
 
 - [x] SQLite storage layer
@@ -28,8 +28,8 @@
 - [x] Basic retrieval (FTS5 + fallback)
 - [x] Memory injection into prompts
 - [x] Core memory blocks (Letta concept)
-- [ ] Conversation summarization on session end
-- [ ] Memory importance scoring
+- [x] Conversation summarization on session end
+- [x] Memory importance scoring
 
 Exit criteria: Bot remembers previous conversations.
 
@@ -44,14 +44,14 @@ Exit criteria: Bot remembers previous conversations.
 
 Exit criteria: Different queries route to appropriate LLM.
 
-## Phase 4: Background Agents
+## Phase 4: Background Agents (Complete)
 **Goal**: Proactive behavior
 
-- [ ] Agent lifecycle management
-- [ ] Sleep agent (memory consolidation)
-- [ ] Awareness agent (proactive checks)
-- [ ] Async task scheduler
-- [ ] Semantic memory extraction
+- [x] Agent lifecycle management (Orchestrator)
+- [x] Sleep agent (memory consolidation)
+- [x] Awareness agent (proactive checks)
+- [x] Async task scheduler
+- [x] Semantic memory extraction
 
 Exit criteria: Bot consolidates memories during idle, can proactively notify.
 
@@ -107,10 +107,10 @@ Exit criteria: Natural multimodal conversations.
 
 ## Current Focus
 
-**Phase 2 completion + Phase 4 start**
+**Phase 5: Safety & Self-Modification**
 
 Next actions:
-1. Add conversation summarization on session end
-2. Memory importance scoring
-3. Test end-to-end with Telegram
-4. Begin background agent infrastructure
+1. Test end-to-end with Telegram bot
+2. Action classification system
+3. Approval workflow for risky operations
+4. Audit logging

@@ -1,6 +1,6 @@
 """Telegram bot interface - single-user mode with persona support."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -12,9 +12,12 @@ from telegram.ext import (
     filters,
 )
 
+from sentinel.agents.awareness import AwarenessAgent
 from sentinel.agents.dialog import DialogAgent
+from sentinel.agents.sleep import SleepAgent
 from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
+from sentinel.core.orchestrator import TaskPriority, get_orchestrator
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
 from sentinel.llm.router import create_default_router
@@ -34,6 +37,9 @@ class TelegramInterface(Interface):
         self.agent: DialogAgent | None = None
         self.memory: SQLiteMemoryStore | None = None
         self._router = None
+        self._sleep_agent: SleepAgent | None = None
+        self._awareness_agent: AwarenessAgent | None = None
+        self._orchestrator = get_orchestrator()
 
     async def _init_components(self) -> None:
         """Initialize agent and memory store."""
@@ -49,6 +55,32 @@ class TelegramInterface(Interface):
         llm = list(self._router._providers.values())[0]
         self.agent = DialogAgent(llm=llm, memory=self.memory)
         await self.agent.initialize()
+
+        # Initialize background agents
+        self._sleep_agent = SleepAgent(llm=llm, memory=self.memory)
+        self._awareness_agent = AwarenessAgent(
+            llm=llm,
+            memory=self.memory,
+            notify_callback=self._send_notification,
+        )
+
+        # Schedule background tasks
+        self._orchestrator.schedule_task(
+            task_id="sleep_consolidation",
+            name="Memory consolidation",
+            callback=self._run_sleep_cycle,
+            interval=timedelta(hours=1),
+            priority=TaskPriority.LOW,
+            delay=timedelta(minutes=10),  # Wait 10min before first run
+        )
+        self._orchestrator.schedule_task(
+            task_id="awareness_check",
+            name="Awareness check",
+            callback=self._run_awareness_check,
+            interval=timedelta(minutes=1),
+            priority=TaskPriority.NORMAL,
+        )
+        await self._orchestrator.start()
 
         logger.info(f"Initialized with identity: {settings.identity_path}")
 
@@ -87,6 +119,7 @@ class TelegramInterface(Interface):
             except Exception as e:
                 logger.warning(f"Failed to summarize on shutdown: {e}")
 
+        await self._orchestrator.stop()
         if self._router:
             await self._router.close_all()
         if self.app:
@@ -109,6 +142,25 @@ class TelegramInterface(Interface):
 
     def _is_owner(self, user_id: int) -> bool:
         return user_id == self.owner_id
+
+    async def _run_sleep_cycle(self) -> None:
+        """Run sleep agent consolidation if system is idle."""
+        if not self._orchestrator.is_idle():
+            return
+        if self._sleep_agent:
+            result = await self._sleep_agent.run_consolidation()
+            if result.get("facts_extracted", 0) > 0:
+                logger.info(f"Sleep cycle: {result}")
+
+    async def _run_awareness_check(self) -> None:
+        """Run awareness agent checks."""
+        if self._awareness_agent:
+            await self._awareness_agent.check_all()
+
+    async def _send_notification(self, message: str) -> None:
+        """Send proactive notification to owner."""
+        if self.app and self.owner_id:
+            await self._safe_reply(self.owner_id, f"🔔 {message}", is_markdown=False)
 
     async def _safe_reply(
         self, chat_id: int, text: str, is_markdown: bool = True, reply_to: int | None = None
@@ -223,6 +275,9 @@ Conversation: {conv_len} messages"""
         if not self.agent:
             await update.message.reply_text("Agent not initialized. Please restart.")
             return
+
+        # Mark activity for background task scheduling
+        self._orchestrator.mark_activity()
 
         message = Message(
             id=str(update.message.message_id),
