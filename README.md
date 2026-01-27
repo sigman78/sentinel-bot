@@ -1,15 +1,100 @@
 # Project Sentinel
 
-This is a scaffold for building and continious evolution of personal AI agents swarm.
+Personal AI agents swarm - self-evolving assistant system.
 
-## Key features and operating rules
+## Features
 
- - Orchestrates multiple specialized agents, each with own context, own and shared/specialized memories
- - Proactively and asynchronously manages context and memories of agents: like sleep agent, awarness agent etc
- - Builds and controls own memory hierarchy - user profile, user environment profile [personal, work], short-term memory, long-term memory, world model
- - Utilizes multimodal AI to human interface [starting with chat apps, text, images, voice messages, reactions]
- - Code style optimized for machine understanding - saving tokens, duplicating information only where it matters for context
- - Sandbox for self-improving modification - a harness of tests when agents edit own code before changes are accepted
- - Safety first - analyze outcomes of operations, keeps personal information safe (unless given a permission)
+- Multi-agent orchestration with shared/specialized memories
+- Background agents: sleep (memory consolidation), awareness (proactive notifications)
+- Memory hierarchy: core memory, episodic, semantic (FTS5 search)
+- LLM flexibility: Claude (primary), OpenRouter (fallback), local LLMs (background)
+- Telegram bot interface with persona support
 
-TBD
+## Installation
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd sentinel
+uv sync
+
+# Verify installation
+uv run sentinel --help
+```
+
+## Configuration
+
+Create `.env` file in project root:
+
+```env
+# Required: At least one LLM provider
+SENTINEL_ANTHROPIC_API_KEY=sk-ant-...
+SENTINEL_OPENROUTER_API_KEY=sk-or-...
+
+# Required for Telegram bot
+SENTINEL_TELEGRAM_TOKEN=123456:ABC...
+SENTINEL_TELEGRAM_OWNER_ID=123456789
+
+# Optional
+SENTINEL_LOCAL_LLM_URL=http://localhost:1234/v1
+SENTINEL_DATA_DIR=data
+SENTINEL_DAILY_COST_LIMIT=5.0
+```
+
+Get Telegram bot token from [@BotFather](https://t.me/BotFather). Get your owner ID from [@userinfobot](https://t.me/userinfobot).
+
+## Persona Files
+
+| File | Purpose | Edited By |
+|------|---------|-----------|
+| `data/identity.md` | Agent personality, capabilities | User |
+| `data/agenda.md` | Tasks, plans, notes | Agent |
+
+## CLI Commands
+
+```bash
+# Initialize data directory and persona files
+uv run sentinel init
+
+# Start Telegram bot (main mode)
+uv run sentinel run
+
+# Interactive CLI chat (testing)
+uv run sentinel chat
+
+# Check system health
+uv run sentinel health
+```
+
+## Telegram Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Initialize bot |
+| `/help` | Show commands |
+| `/status` | Agent status, providers, memory |
+| `/clear` | Summarize and clear conversation |
+| `/agenda` | Show current agenda |
+
+## Development
+
+```bash
+# Run tests
+uv run pytest -v
+
+# Run integration tests (requires .env with API keys)
+uv run pytest tests/integration -v
+
+# Lint
+uv run ruff check src tests --fix
+```
+
+## Architecture
+
+See [docs/](docs/) for detailed documentation:
+- [architecture.md](docs/architecture.md) - System design
+- [agents.md](docs/agents.md) - Agent types and orchestration
+- [memory.md](docs/memory.md) - Memory hierarchy
+- [roadmap.md](docs/roadmap.md) - Development phases
