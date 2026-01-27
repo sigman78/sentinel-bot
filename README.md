@@ -5,10 +5,13 @@ Personal AI agents swarm - self-evolving assistant system.
 ## Features
 
 - Multi-agent orchestration with shared/specialized memories
+- Collaborative agents: for complex tasks agents work together in hierarchical human-like org, making multiple opinions, evaluating results
 - Background agents: sleep (memory consolidation), awareness (proactive notifications)
-- Memory hierarchy: core memory, episodic, semantic (FTS5 search)
-- LLM flexibility: Claude (primary), OpenRouter (fallback), local LLMs (background)
+- Memory hierarchy: core memory, episodic, semantic, vector db
+- LLM flexibility: Claude, OpenRouter, local providers - depending on task difficulty, agent and value
 - Telegram bot interface with persona support
+- Self automating: has 'isolated' workspace for agents to write and run code, interacting with host system and outside world
+- Self aware: checks own performance, assistant quality, assess satisfaction, makes notes, updates human-readable agenda
 
 ## Installation
 
