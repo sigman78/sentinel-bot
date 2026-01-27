@@ -55,6 +55,14 @@ class ClaudeProvider(LLMProvider):
             else:
                 api_messages.append(msg)
 
+        # Log request details in debug mode
+        logger.debug(f"Claude request: model={model}, max_tokens={config.max_tokens}")
+        if system_prompt:
+            logger.debug(f"Claude system prompt ({len(system_prompt)} chars)")
+        for msg in api_messages:
+            preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+            logger.debug(f"Claude [{msg['role']}]: {preview}")
+
         try:
             response = await self.client.messages.create(
                 model=model,
@@ -68,9 +76,8 @@ class ClaudeProvider(LLMProvider):
             output_tokens = response.usage.output_tokens
             cost = self._calculate_cost(model, input_tokens, output_tokens)
 
-            logger.debug(
-                f"Claude response: {input_tokens} in, {output_tokens} out, ${cost:.4f}"
-            )
+            logger.debug(f"Claude response ({output_tokens} tokens): {content[:200]}...")
+            logger.debug(f"Claude usage: {input_tokens} in, {output_tokens} out, ${cost:.4f}")
 
             return LLMResponse(
                 content=content,

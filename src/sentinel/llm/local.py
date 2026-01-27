@@ -45,6 +45,12 @@ class LocalProvider(LLMProvider):
             "stream": False,
         }
 
+        # Log request details in debug mode
+        logger.debug(f"Local request: model={model}, url={self.base_url}")
+        for msg in messages:
+            preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+            logger.debug(f"Local [{msg['role']}]: {preview}")
+
         try:
             response = await self.client.post("/chat/completions", json=payload)
             response.raise_for_status()
@@ -55,8 +61,8 @@ class LocalProvider(LLMProvider):
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
 
-            # Local models have no API cost
-            logger.debug(f"Local [{model}]: {input_tokens} in, {output_tokens} out")
+            logger.debug(f"Local response ({output_tokens} tokens): {content[:200]}...")
+            logger.debug(f"Local usage: {input_tokens} in, {output_tokens} out")
 
             return LLMResponse(
                 content=content,

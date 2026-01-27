@@ -63,6 +63,12 @@ class OpenRouterProvider(LLMProvider):
             "temperature": config.temperature,
         }
 
+        # Log request details in debug mode
+        logger.debug(f"OpenRouter request: model={model}, max_tokens={config.max_tokens}")
+        for msg in messages:
+            preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+            logger.debug(f"OpenRouter [{msg['role']}]: {preview}")
+
         try:
             response = await self.client.post("/chat/completions", json=payload)
             response.raise_for_status()
@@ -74,7 +80,8 @@ class OpenRouterProvider(LLMProvider):
             output_tokens = usage.get("completion_tokens", 0)
             cost = self._calculate_cost(model, input_tokens, output_tokens)
 
-            logger.debug(f"OpenRouter [{model}]: {input_tokens}→{output_tokens} tok, ${cost:.4f}")
+            logger.debug(f"OpenRouter response ({output_tokens} tokens): {content[:200]}...")
+            logger.debug(f"OpenRouter usage: {input_tokens}→{output_tokens} tok, ${cost:.4f}")
 
             return LLMResponse(
                 content=content,

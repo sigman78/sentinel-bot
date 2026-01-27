@@ -320,6 +320,9 @@ Conversation: {conv_len} messages"""
         # Mark activity for background task scheduling
         self._orchestrator.mark_activity()
 
+        # Log incoming message
+        logger.debug(f"USER: {update.message.text}")
+
         message = Message(
             id=str(update.message.message_id),
             timestamp=datetime.now(),
@@ -332,6 +335,12 @@ Conversation: {conv_len} messages"""
         try:
             await update.message.chat.send_action("typing")
             response = await self.agent.process(message)
+
+            # Log outgoing response
+            if len(response.content) > 200:
+                logger.debug(f"BOT: {response.content[:200]}...")
+            else:
+                logger.debug(f"BOT: {response.content}")
 
             await self._safe_reply(
                 update.effective_chat.id,

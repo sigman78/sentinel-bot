@@ -145,6 +145,7 @@ class DialogAgent(BaseAgent):
     async def process(self, message: Message) -> Message:
         """Process user message and generate response."""
         self.state = AgentState.ACTIVE
+        logger.debug(f"DialogAgent processing: {message.content[:100]}...")
 
         self.context.conversation.append(message)
         self._trim_history()
@@ -155,6 +156,7 @@ class DialogAgent(BaseAgent):
         # Retrieve relevant memories
         memories = await self._get_relevant_memories(message.content)
         memory_text = self._format_memories(memories)
+        logger.debug(f"DialogAgent memories: {len(memories)} retrieved")
 
         # Build system prompt with identity, agenda, and context
         system_prompt = self.config.system_prompt.format(
@@ -164,13 +166,16 @@ class DialogAgent(BaseAgent):
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
         )
+        logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")
 
         llm_messages = [{"role": "system", "content": system_prompt}]
         for msg in self.context.conversation:
             llm_messages.append(msg.to_llm_format())
+        logger.debug(f"DialogAgent conversation: {len(self.context.conversation)} messages")
 
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
         response = await self.llm.complete(llm_messages, llm_config)
+        logger.debug(f"DialogAgent response: {len(response.content)} chars")
 
         response_msg = Message(
             id=str(uuid4()),

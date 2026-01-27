@@ -133,12 +133,14 @@ class Orchestrator:
 
             for task in pending:
                 task.running = True
+                logger.debug(f"Running task: {task.name} (priority: {task.priority.value})")
                 try:
                     result = task.callback()
                     if asyncio.iscoroutine(result):
                         await result
+                    logger.debug(f"Task completed: {task.name}")
                 except Exception as e:
-                    logger.error(f"Task {task.name} failed: {e}")
+                    logger.error(f"Task {task.name} failed: {e}", exc_info=True)
                 finally:
                     task.running = False
                     task.last_run = datetime.now()
