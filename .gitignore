@@ -22,17 +22,11 @@ wheels/
 MANIFEST
 
 # Virtual environments
-.env
-.venv
-env/
+.venv/
 venv/
 ENV/
 env.bak/
 venv.bak/
-
-# Processing directories
-temp/
-output/
 
 # IDE
 .vscode/
@@ -48,4 +42,29 @@ Thumbs.db
 # UV
 .uv/
 
-src/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Type checking
+.mypy_cache/
+
+# Environment
+.env
+.env.local
+
+# Data (keep structure, ignore content)
+data/*.db
+data/*.log
+data/episodes/
+!data/.gitkeep
+
+# Logs
+*.log
+
+# Processing
+temp/
+output/
