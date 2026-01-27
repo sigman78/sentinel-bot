@@ -10,46 +10,43 @@
 - [x] Configuration management
 - [x] Logging infrastructure
 
-## Phase 1: Core Loop
+## Phase 1: Core Loop (Complete)
 **Goal**: Single agent responding via Telegram
 
-Deliverables:
-- [ ] LLM provider abstraction (Claude API)
-- [ ] Basic Telegram interface
-- [ ] Main dialog agent (stateless)
-- [ ] Simple prompt template
-- [ ] CLI interface for testing
+- [x] LLM provider abstraction (Claude API)
+- [x] Basic Telegram interface
+- [x] Main dialog agent
+- [x] Simple prompt template
+- [x] CLI interface for testing
 
-Exit criteria: Can have basic conversation via Telegram.
-
-## Phase 2: Memory
+## Phase 2: Memory (Partial)
 **Goal**: Persistent context across sessions
 
-Deliverables:
-- [ ] SQLite storage layer
-- [ ] Working memory (session)
-- [ ] Episodic memory (conversation logs)
-- [ ] Basic retrieval (recent + keyword)
-- [ ] Memory injection into prompts
+- [x] SQLite storage layer
+- [x] Working memory (session)
+- [x] Episodic memory (conversation logs)
+- [x] Basic retrieval (FTS5 + fallback)
+- [x] Memory injection into prompts
+- [x] Core memory blocks (Letta concept)
+- [ ] Conversation summarization on session end
+- [ ] Memory importance scoring
 
 Exit criteria: Bot remembers previous conversations.
 
 ## Phase 3: Multi-Provider
 **Goal**: LLM flexibility and cost optimization
 
-Deliverables:
+- [x] Provider router with fallback logic
+- [x] Cost tracking per request
 - [ ] OpenRouter integration
 - [ ] Local LLM support (Ollama/LM Studio)
-- [ ] Provider router (select by task)
-- [ ] Cost tracking
-- [ ] Fallback logic
+- [ ] Model selection by task type
 
 Exit criteria: Different queries route to appropriate LLM.
 
 ## Phase 4: Background Agents
 **Goal**: Proactive behavior
 
-Deliverables:
 - [ ] Agent lifecycle management
 - [ ] Sleep agent (memory consolidation)
 - [ ] Awareness agent (proactive checks)
@@ -61,7 +58,6 @@ Exit criteria: Bot consolidates memories during idle, can proactively notify.
 ## Phase 5: Safety & Self-Modification
 **Goal**: Safe autonomous operation
 
-Deliverables:
 - [ ] Action classification system
 - [ ] Approval workflow
 - [ ] Audit logging
@@ -73,7 +69,6 @@ Exit criteria: Agent can propose and safely apply code changes.
 ## Phase 6: Rich Interface
 **Goal**: Full multimodal support
 
-Deliverables:
 - [ ] Voice message handling (STT)
 - [ ] Image understanding
 - [ ] File processing
@@ -112,10 +107,10 @@ Exit criteria: Natural multimodal conversations.
 
 ## Current Focus
 
-**Phase 1: Core Loop**
+**Phase 2: Memory completion + Phase 3: Multi-Provider**
 
 Next actions:
-1. Implement Claude API client
-2. Build basic Telegram bot
-3. Create Main Dialog agent
-4. Wire up CLI chat for testing
+1. Add conversation summarization
+2. Implement OpenRouter provider
+3. Add local LLM support
+4. Test end-to-end with Telegram
