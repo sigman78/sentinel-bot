@@ -51,17 +51,28 @@ Unified interface for all memory operations:
 
 ## LLM Strategy
 
-Models selected by task type, not as fallback chain:
+Models  selected by task 'difficulty' level (1 - Easy, 2 - Intermediate, 3 - Hard):
 
-| Task Type | Provider | Model | Rationale |
+Some examples of difficulty assesments
+
+| Task example | Difficulty Level | Explanation |
+|--------------|------------------|-------------|
+| Long term planning | 3 - Hard | Need large context with memories, complex reasoning |
+| Contex rebuild | 3 - Hard | Accuracy important |
+| Dialog | 3 - Hard | Maintain focus, personality, goals |
+| Summarization | 2 - Intermediate | Cheaper, could run more often |
+| Simple agents | 2 - Intermediate | Fast and cost optimized |
+| Tool calls | 1 - Easy | build tool input, parse outputs, reason for results |
+| Inter-agent | 1 - Easy | High volume, faster |
+
+Difficulty to model mappings (sample):
+
+| Level | Model | Rationale |
 |-----------|----------|-------|-----------|
-| Planning | Claude | claude-sonnet-4 | Complex reasoning, reliability |
-| Context rebuild | Claude | claude-sonnet-4 | Accuracy critical |
-| Dialog | Claude/OpenRouter | sonnet/gpt-4o-mini | Balance cost/quality |
-| Summarization | OpenRouter | gpt-4o-mini | Simple, cheap |
-| Simple agents | OpenRouter | gpt-4o-mini/haiku | Cost optimization |
-| Tool calls | Local | qwen-instruct | Fast, free, structured output |
-| Inter-agent | Local | qwen-instruct | High volume, low latency |
+| 3 - Hard  | Claude Sonnet | Complex reasoning, reliability |
+| 2 - Intermediate | Haiku or GLM | Balance |
+| 1 - Easy | Qwen Instruct or similar | Fast |
+
 
 ### Model Selection Logic
 1. Task type determines model category
