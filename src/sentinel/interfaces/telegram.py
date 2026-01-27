@@ -79,7 +79,14 @@ class TelegramInterface(Interface):
         await self.app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
     async def stop(self) -> None:
-        """Stop Telegram bot."""
+        """Stop Telegram bot, summarizing session first."""
+        # Summarize conversation before shutdown
+        if self.agent and len(self.agent.context.conversation) >= 2:
+            try:
+                await self.agent.summarize_session()
+            except Exception as e:
+                logger.warning(f"Failed to summarize on shutdown: {e}")
+
         if self._router:
             await self._router.close_all()
         if self.app:
@@ -177,11 +184,16 @@ Conversation: {conv_len} messages"""
         await self._safe_reply(update.effective_chat.id, status)
 
     async def _handle_clear(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /clear command."""
+        """Handle /clear command - summarize then clear conversation."""
         if not update.effective_user or not self._is_owner(update.effective_user.id):
             return
 
         if self.agent:
+            # Summarize before clearing if there's content
+            if len(self.agent.context.conversation) >= 2:
+                summary = await self.agent.summarize_session()
+                if summary:
+                    await update.message.reply_text(f"Session saved: {summary[:200]}")
             self.agent.context.conversation.clear()
             await update.message.reply_text("Conversation cleared.")
 

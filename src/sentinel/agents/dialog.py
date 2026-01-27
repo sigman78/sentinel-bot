@@ -11,6 +11,24 @@ from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
+SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
+- Key topics discussed
+- Decisions made or tasks completed
+- Important information shared
+
+Conversation:
+{conversation}
+
+Summary:"""
+
+IMPORTANCE_PROMPT = """Rate the importance of this conversation on a scale of 0.0-1.0.
+Consider: actionable items, personal details learned, decisions made, emotional significance.
+Return ONLY a number like 0.7
+
+Conversation summary: {summary}
+
+Rating:"""
+
 logger = get_logger("agents.dialog")
 
 FALLBACK_IDENTITY = """I'm Sentinel, your personal AI assistant.
@@ -235,3 +253,59 @@ class DialogAgent(BaseAgent):
                 self._user_name = value
             elif key == "user_context":
                 self._user_context = value
+
+    async def summarize_session(self) -> str | None:
+        """Summarize and persist conversation, returns summary text."""
+        if len(self.context.conversation) < 2:
+            return None
+
+        # Format conversation for summarization
+        conv_text = "\n".join(
+            f"{m.role}: {m.content[:500]}" for m in self.context.conversation[-20:]
+        )
+
+        # Use LLM to generate summary (uses cheaper model if available)
+        llm_config = LLMConfig(model=None, max_tokens=256, temperature=0.3)
+        messages = [{"role": "user", "content": SUMMARIZE_PROMPT.format(conversation=conv_text)}]
+
+        try:
+            response = await self.llm.complete(messages, llm_config)
+            summary = response.content.strip()
+
+            # Score importance
+            importance = await self._score_importance(summary)
+
+            # Store as episodic memory
+            entry = MemoryEntry(
+                id=str(uuid4()),
+                type=MemoryType.EPISODIC,
+                content=summary,
+                timestamp=datetime.now(),
+                importance=importance,
+                metadata={
+                    "session_id": self.context.agent_id,
+                    "msg_count": len(self.context.conversation),
+                },
+            )
+            await self.memory.store(entry)
+
+            logger.info(f"Session summarized (importance: {importance:.2f}): {summary[:100]}")
+            return summary
+
+        except Exception as e:
+            logger.warning(f"Failed to summarize session: {e}")
+            return None
+
+    async def _score_importance(self, summary: str) -> float:
+        """Score importance of a conversation summary (0.0-1.0)."""
+        try:
+            llm_config = LLMConfig(model=None, max_tokens=10, temperature=0.1)
+            messages = [{"role": "user", "content": IMPORTANCE_PROMPT.format(summary=summary)}]
+            response = await self.llm.complete(messages, llm_config)
+
+            # Parse the response - expect a number
+            score_text = response.content.strip()
+            score = float(score_text.split()[0])
+            return max(0.0, min(1.0, score))
+        except Exception:
+            return 0.5  # Default importance
