@@ -165,7 +165,20 @@ class TelegramInterface(Interface):
     async def _safe_reply(
         self, chat_id: int, text: str, is_markdown: bool = True, reply_to: int | None = None
     ) -> None:
-        """Send message with fallback if markdown fails."""
+        """Send message with fallback if markdown fails, splits long messages."""
+        # Telegram limit is 4096 chars, use 4000 for safety margin
+        max_len = 4000
+        chunks = self._split_message(text, max_len)
+
+        for i, chunk in enumerate(chunks):
+            # Only reply_to on first chunk
+            reply_id = reply_to if i == 0 else None
+            await self._send_chunk(chat_id, chunk, is_markdown, reply_id)
+
+    async def _send_chunk(
+        self, chat_id: int, text: str, is_markdown: bool, reply_to: int | None
+    ) -> None:
+        """Send a single message chunk with markdown fallback."""
         try:
             if is_markdown:
                 await self.app.bot.send_message(
@@ -179,11 +192,39 @@ class TelegramInterface(Interface):
                     chat_id=chat_id, text=text, reply_to_message_id=reply_to
                 )
         except Exception as e:
-            # Fallback to plain text if markdown parsing fails
             logger.warning(f"Markdown failed, falling back to plain: {e}")
-            await self.app.bot.send_message(
-                chat_id=chat_id, text=text, reply_to_message_id=reply_to
-            )
+            try:
+                await self.app.bot.send_message(
+                    chat_id=chat_id, text=text, reply_to_message_id=reply_to
+                )
+            except Exception as e2:
+                logger.error(f"Failed to send message: {e2}", exc_info=True)
+
+    def _split_message(self, text: str, max_len: int) -> list[str]:
+        """Split message into chunks, preferring line breaks."""
+        if len(text) <= max_len:
+            return [text]
+
+        chunks = []
+        while text:
+            if len(text) <= max_len:
+                chunks.append(text)
+                break
+
+            # Find a good break point (newline or space)
+            split_at = max_len
+            newline_pos = text.rfind("\n", 0, max_len)
+            if newline_pos > max_len // 2:
+                split_at = newline_pos + 1
+            else:
+                space_pos = text.rfind(" ", 0, max_len)
+                if space_pos > max_len // 2:
+                    split_at = space_pos + 1
+
+            chunks.append(text[:split_at])
+            text = text[split_at:]
+
+        return chunks
 
     async def _handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""

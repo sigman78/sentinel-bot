@@ -61,6 +61,9 @@ uv run sentinel init
 # Start Telegram bot (main mode)
 uv run sentinel run
 
+# Start with debug logging (writes to data/sentinel.log)
+uv run sentinel --debug run
+
 # Interactive CLI chat (testing)
 uv run sentinel chat
 

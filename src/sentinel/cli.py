@@ -6,9 +6,13 @@ Commands:
 - chat: Interactive CLI chat mode
 - init: Initialize data directory
 - health: Check LLM provider connectivity
+
+Flags:
+- --debug: Enable debug logging to file
 """
 
 import asyncio
+import logging
 import sys
 from datetime import datetime
 from uuid import uuid4
@@ -21,12 +25,25 @@ from sentinel.core.types import ContentType, Message
 def main() -> int:
     """Main entry point."""
     settings = get_settings()
-    setup_logging(log_file=settings.data_dir / "sentinel.log")
+
+    # Parse --debug flag (enables verbose DEBUG traces)
+    debug_mode = "--debug" in sys.argv
+    if debug_mode:
+        sys.argv.remove("--debug")
+
+    # Always log to file (INFO level includes warnings/errors)
+    # --debug enables verbose DEBUG level
+    log_level = logging.DEBUG if debug_mode else logging.INFO
+    log_file = settings.data_dir / "sentinel.log"
+    setup_logging(level=log_level, log_file=log_file)
     logger = get_logger("cli")
 
+    logger.info(f"Logging to {log_file}" + (" (debug mode)" if debug_mode else ""))
+
     if len(sys.argv) < 2:
-        print("Usage: sentinel <command>")
+        print("Usage: sentinel [--debug] <command>")
         print("Commands: run, chat, init, health")
+        print("Flags: --debug (enable debug logging to data/sentinel.log)")
         return 1
 
     command = sys.argv[1]
