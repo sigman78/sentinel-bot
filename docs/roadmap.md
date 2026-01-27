@@ -59,9 +59,10 @@ Exit criteria: Bot consolidates memories during idle, can proactively notify.
 **Goal**: Cost-optimized model selection by task type
 
 - [ ] Task-based model selection (not fallback)
-- [ ] Claude: Planning, complex reasoning, context rebuilds
-- [ ] OpenRouter (cheap models): Simple agents, summarization
-- [ ] Local LLM (Qwen/etc): Tool calls, inter-agent communication
+- [ ] Opus/GLM 4.7/K2 level: Planning, dialog, complex reasoning, context rebuilds, summary
+- [ ] Sonnet, non-reasoning : Simpler agents, inter-agent communication
+- [ ] QWen instruct, Ministral, GLM-Air: Tool calls, agent instructions
+- [ ] Multi-modal models: Image summarization, text recognition, audio transcription
 - [ ] Cost/value assessment per task type
 - [ ] Model capability registry
 
