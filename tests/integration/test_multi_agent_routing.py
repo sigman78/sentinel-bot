@@ -191,7 +191,7 @@ Format: JSON object with keys response1, response2, response3, each containing a
         assert len(response2.content) > 100
         assert len(response3.content) > 100
 
-        print("\n✅ All assertions passed")
+        print("\n[PASS] All assertions passed")
 
     finally:
         # Cleanup
@@ -285,9 +285,9 @@ async def test_cost_tracking_across_multiple_requests():
     assert all(c > 0 for c in costs)
 
     if summary['percent_used'] > 80:
-        print("\n✅ Budget warning system working")
+        print("\n[PASS] Budget warning system working")
     else:
-        print("\n✅ All requests within budget")
+        print("\n[PASS] All requests within budget")
 
     await router.close_all()
 
@@ -349,7 +349,7 @@ async def test_task_difficulty_cost_correlation():
 
     # Generally, harder tasks should use more expensive models
     # (though not guaranteed if only one provider available)
-    print("\n✅ Task difficulty routing verified")
+    print("\n[PASS] Task difficulty routing verified")
 
     await router.close_all()
 
