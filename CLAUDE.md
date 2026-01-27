@@ -14,6 +14,8 @@ Use best dev practices - testing, reviewing, linting. Use git when it makes sens
 
 Manage context. If multiple agents is available - use action targeted: planning, researching, specific task coding, testing, reviewing.
 
+When working on self-improvements (aside from trivial changes) - create separate git worktree with a branch (don't forget to copy over transient data you might need from source dir), work on it, verify work quality before merging back. 
+
 ## Documentation Guidelines
 - Avoid ASCII art/graphics in documentation
 - Use machine-readable formats: tables, lists, structured text
