@@ -30,12 +30,32 @@ Monitors context and environment. Proactive notifications.
 
 ### Specialized Agents (Future)
 
-| Agent | Purpose | LLM Tier |
-|-------|---------|----------|
-| Code | Programming tasks | Claude |
-| Research | Web search, synthesis | OpenRouter |
-| Calendar | Schedule management | Local |
-| Writer | Long-form content | Claude |
+| Agent | Purpose | LLM Tier | Workspace |
+|-------|---------|----------|-----------|
+| Code | Programming tasks | Claude | Yes |
+| Research | Web search, synthesis | OpenRouter | No |
+| Calendar | Schedule management | Local | No |
+| Writer | Long-form content | Claude | No |
+| Tool | Script execution, automation | Local | Yes |
+
+#### Code Agent
+Handles programming tasks with access to Tool Workspace.
+- **LLM**: Claude (complex reasoning for code)
+- **Workspace access**: Full (read/write/execute)
+- **Capabilities**:
+  - Write Python scripts to workspace
+  - Execute scripts and capture output
+  - Install dependencies to isolated venv
+  - Iterate on code based on errors
+
+#### Tool Agent
+Executes predefined tools and scripts.
+- **LLM**: Local (structured output, tool calling)
+- **Workspace access**: Execute only (predefined scripts)
+- **Capabilities**:
+  - Run approved scripts
+  - Parse and return structured output
+  - Chain tool calls for complex operations
 
 ## Agent Lifecycle
 

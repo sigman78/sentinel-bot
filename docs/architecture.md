@@ -48,3 +48,53 @@ Unified interface for all memory operations:
 | Agents | Parallel async tasks | Independent tasks can run parallel |
 | Background agents | Periodic async tasks | Sleep, awareness run on schedule |
 | LLM calls | Async with timeout | Retry and fallback logic |
+
+## LLM Strategy
+
+Models selected by task type, not as fallback chain:
+
+| Task Type | Provider | Model | Rationale |
+|-----------|----------|-------|-----------|
+| Planning | Claude | claude-sonnet-4 | Complex reasoning, reliability |
+| Context rebuild | Claude | claude-sonnet-4 | Accuracy critical |
+| Dialog | Claude/OpenRouter | sonnet/gpt-4o-mini | Balance cost/quality |
+| Summarization | OpenRouter | gpt-4o-mini | Simple, cheap |
+| Simple agents | OpenRouter | gpt-4o-mini/haiku | Cost optimization |
+| Tool calls | Local | qwen-instruct | Fast, free, structured output |
+| Inter-agent | Local | qwen-instruct | High volume, low latency |
+
+### Model Selection Logic
+1. Task type determines model category
+2. Check model availability
+3. Consider current cost budget
+4. Fall back only if primary unavailable
+
+## Tool Workspace
+
+Sandboxed environment for code execution at `data/workspace/`.
+
+### Structure
+```
+data/workspace/
+├── scripts/        # Bot-written Python scripts
+├── output/         # Execution output files
+├── deps/           # Isolated dependencies
+└── .venv/          # Workspace virtual environment
+```
+
+### Capabilities
+| Operation | Allowed | Constraints |
+|-----------|---------|-------------|
+| Write files | Yes | Within workspace only |
+| Read files | Yes | Workspace + allowed paths |
+| Execute Python | Yes | Timeout, resource limits |
+| Install packages | Yes | To workspace venv only |
+| Network access | Limited | Whitelist only |
+| System calls | No | Blocked |
+
+### Safety Boundaries
+- Scripts run in subprocess with timeout
+- No access to parent directories
+- No environment variable leakage
+- Output captured and size-limited
+- Failed scripts logged for review

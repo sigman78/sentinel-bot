@@ -55,18 +55,42 @@ Exit criteria: Different queries route to appropriate LLM.
 
 Exit criteria: Bot consolidates memories during idle, can proactively notify.
 
-## Phase 5: Safety & Self-Modification
+## Phase 5: Intelligent LLM Routing
+**Goal**: Cost-optimized model selection by task type
+
+- [ ] Task-based model selection (not fallback)
+- [ ] Claude: Planning, complex reasoning, context rebuilds
+- [ ] OpenRouter (cheap models): Simple agents, summarization
+- [ ] Local LLM (Qwen/etc): Tool calls, inter-agent communication
+- [ ] Cost/value assessment per task type
+- [ ] Model capability registry
+
+Exit criteria: Each task type routes to optimal model by cost/capability.
+
+## Phase 6: Tool Workspace
+**Goal**: Sandboxed environment for code execution
+
+- [ ] Workspace directory structure (`data/workspace/`)
+- [ ] Python environment isolation (venv per workspace)
+- [ ] Script execution with output capture
+- [ ] File read/write within sandbox
+- [ ] Dependency management (uv/pip)
+- [ ] Execution timeout and resource limits
+
+Exit criteria: Bot can write, execute Python scripts and read results safely.
+
+## Phase 7: Safety & Self-Modification
 **Goal**: Safe autonomous operation
 
 - [ ] Action classification system
 - [ ] Approval workflow
 - [ ] Audit logging
 - [ ] Test harness for code changes
-- [ ] Self-modification sandbox
+- [ ] Self-modification sandbox (uses Tool Workspace)
 
 Exit criteria: Agent can propose and safely apply code changes.
 
-## Phase 6: Rich Interface
+## Phase 8: Rich Interface
 **Goal**: Full multimodal support
 
 - [ ] Voice message handling (STT)
@@ -79,18 +103,18 @@ Exit criteria: Natural multimodal conversations.
 
 ## Future Phases
 
-### Phase 7: Specialized Agents
-- Code agent (programming tasks)
+### Phase 9: Specialized Agents
+- Code agent (uses Tool Workspace)
 - Research agent (web search, synthesis)
 - Calendar agent (scheduling)
 
-### Phase 8: External Integrations
+### Phase 10: External Integrations
 - Calendar APIs
 - Note-taking apps
 - Smart home
 - Email
 
-### Phase 9: Multi-User
+### Phase 11: Multi-User
 - User isolation
 - Shared knowledge base
 - User-to-user introductions
@@ -107,10 +131,10 @@ Exit criteria: Natural multimodal conversations.
 
 ## Current Focus
 
-**Phase 5: Safety & Self-Modification**
+**Phase 5: Intelligent LLM Routing**
 
 Next actions:
-1. Test end-to-end with Telegram bot
-2. Action classification system
-3. Approval workflow for risky operations
-4. Audit logging
+1. Design task→model mapping strategy
+2. Implement model capability registry
+3. Update router to select by task type (not fallback)
+4. Add cost tracking per task category
