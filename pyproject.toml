@@ -44,6 +44,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: tests requiring real API keys (run with: pytest tests/integration)",
+]
+# Exclude integration tests by default
+addopts = "--ignore=tests/integration"
 
 [tool.mypy]
 python_version = "3.12"
