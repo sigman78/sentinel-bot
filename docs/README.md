@@ -35,3 +35,12 @@ Personal AI agents swarm - self-evolving assistant system.
 | LLM Async | Local LLMs (Ollama/LM Studio) |
 | Storage | SQLite + filesystem |
 | Interface | Telegram Bot API |
+
+## Agent Persona Files
+
+| File | Purpose | Edited By |
+|------|---------|-----------|
+| `data/identity.md` | Agent personality, capabilities, working style | User |
+| `data/agenda.md` | Ongoing tasks, plans, preferences, notes | Agent (self-edited) |
+
+These files are loaded at agent initialization and used to build the system prompt context.

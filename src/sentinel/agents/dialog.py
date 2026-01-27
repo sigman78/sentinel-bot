@@ -1,9 +1,11 @@
-"""Dialog agent - primary user-facing conversation handler."""
+"""Dialog agent - primary user-facing conversation handler with persona."""
 
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
@@ -11,50 +13,112 @@ from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
 logger = get_logger("agents.dialog")
 
-DEFAULT_SYSTEM_PROMPT = """You are Sentinel, a personal AI assistant.
+FALLBACK_IDENTITY = """I'm Sentinel, your personal AI assistant.
+I help with tasks, remember context, and work efficiently."""
 
+SYSTEM_TEMPLATE = """{identity}
+
+## Current Context
 User: {user_name}
 {user_context}
 
-Recent memories:
-{memories}
+## Agenda
+{agenda}
 
-Be direct, remember context, respect privacy."""
+## Recent Memories
+{memories}
+"""
 
 
 class DialogAgent(BaseAgent):
-    """Main conversation agent."""
+    """Main conversation agent with persona from identity.md."""
 
     def __init__(
         self,
         llm: LLMProvider,
         memory: MemoryStore,
-        system_prompt: str | None = None,
+        identity_path: Path | None = None,
+        agenda_path: Path | None = None,
     ):
         config = AgentConfig(
             agent_type=AgentType.DIALOG,
-            system_prompt=system_prompt or DEFAULT_SYSTEM_PROMPT,
+            system_prompt=SYSTEM_TEMPLATE,
         )
         super().__init__(config, llm, memory)
+
+        settings = get_settings()
+        self._identity_path = identity_path or settings.identity_path
+        self._agenda_path = agenda_path or settings.agenda_path
+
         self._max_history = 20
         self._user_name = "User"
         self._user_context = ""
+        self._identity = FALLBACK_IDENTITY
+        self._agenda = ""
 
     async def initialize(self) -> None:
-        """Load user profile from core memory."""
+        """Load identity, agenda, and user profile."""
         await super().initialize()
+        self._load_identity()
+        self._load_agenda()
         await self._load_user_profile()
 
+    def _load_identity(self) -> None:
+        """Load agent identity/persona from file."""
+        try:
+            if self._identity_path.exists():
+                self._identity = self._identity_path.read_text(encoding="utf-8")
+                logger.info(f"Loaded identity from {self._identity_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load identity: {e}")
+
+    def _load_agenda(self) -> None:
+        """Load current agenda from file."""
+        try:
+            if self._agenda_path.exists():
+                self._agenda = self._agenda_path.read_text(encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"Failed to load agenda: {e}")
+
+    def save_agenda(self, content: str) -> None:
+        """Save updated agenda to file."""
+        try:
+            self._agenda_path.parent.mkdir(parents=True, exist_ok=True)
+            self._agenda_path.write_text(content, encoding="utf-8")
+            self._agenda = content
+            logger.info("Agenda updated")
+        except Exception as e:
+            logger.error(f"Failed to save agenda: {e}")
+
+    def update_agenda_section(self, section: str, content: str) -> None:
+        """Update a specific section in agenda."""
+        lines = self._agenda.split("\n")
+        new_lines = []
+        in_section = False
+        section_header = f"## {section}"
+
+        for line in lines:
+            if line.startswith("## "):
+                if line == section_header:
+                    in_section = True
+                    new_lines.append(line)
+                    new_lines.append(content)
+                    continue
+                else:
+                    in_section = False
+            if not in_section:
+                new_lines.append(line)
+
+        self.save_agenda("\n".join(new_lines))
+
     async def _load_user_profile(self) -> None:
-        """Load or bootstrap user profile from core memory."""
+        """Load user profile from core memory."""
         if not hasattr(self.memory, "get_core"):
             return
 
         name = await self.memory.get_core("user_name")
         if name:
             self._user_name = name
-        else:
-            await self.memory.set_core("user_name", "User")
 
         context = await self.memory.get_core("user_context")
         if context:
@@ -67,14 +131,19 @@ class DialogAgent(BaseAgent):
         self.context.conversation.append(message)
         self._trim_history()
 
+        # Refresh agenda (might have been updated externally)
+        self._load_agenda()
+
         # Retrieve relevant memories
         memories = await self._get_relevant_memories(message.content)
         memory_text = self._format_memories(memories)
 
-        # Build prompt with user profile and memories
+        # Build system prompt with identity, agenda, and context
         system_prompt = self.config.system_prompt.format(
+            identity=self._identity,
             user_name=self._user_name,
-            user_context=self._user_context,
+            user_context=self._user_context or "(No additional context)",
+            agenda=self._extract_agenda_summary(),
             memories=memory_text,
         )
 
@@ -99,19 +168,26 @@ class DialogAgent(BaseAgent):
         )
 
         self.context.conversation.append(response_msg)
-
-        # Persist exchange to episodic memory
         await self._persist_exchange(message, response_msg)
 
         self.state = AgentState.READY
         return response_msg
 
+    def _extract_agenda_summary(self) -> str:
+        """Extract relevant agenda sections for context."""
+        if not self._agenda:
+            return "(No active agenda)"
+        # Return first 500 chars of agenda as summary
+        if len(self._agenda) > 500:
+            return self._agenda[:500] + "..."
+        return self._agenda
+
     async def _persist_exchange(self, user_msg: Message, assistant_msg: Message) -> None:
         """Save conversation exchange to episodic memory."""
         try:
-            summary = f"User: {user_msg.content[:100]}... → Assistant responded"
-            if len(user_msg.content) <= 100:
-                summary = f"User: {user_msg.content}"
+            summary = f"User: {user_msg.content[:100]}"
+            if len(user_msg.content) > 100:
+                summary += "..."
 
             entry = MemoryEntry(
                 id=str(uuid4()),

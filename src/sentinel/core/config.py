@@ -34,6 +34,18 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("data"), description="Data storage directory")
     db_name: str = Field(default="sentinel.db", description="SQLite database name")
 
+    # Agent persona files
+    identity_file: str = Field(default="identity.md", description="Agent identity/persona")
+    agenda_file: str = Field(default="agenda.md", description="Agent agenda/notes")
+
+    @property
+    def identity_path(self) -> Path:
+        return self.data_dir / self.identity_file
+
+    @property
+    def agenda_path(self) -> Path:
+        return self.data_dir / self.agenda_file
+
     # Model defaults
     default_model: str = Field(default="claude-sonnet-4-20250514", description="Default model")
     fallback_model: str = Field(default="anthropic/claude-3-haiku", description="Fallback model")
