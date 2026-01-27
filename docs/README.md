@@ -30,11 +30,9 @@ Personal AI agents swarm - self-evolving assistant system.
 | Component | Technology |
 |-----------|------------|
 | Runtime | Python 3.12+, uv |
-| LLM Primary | Claude API |
-| LLM Fallback | OpenRouter |
-| LLM Async | Local LLMs (Ollama/LM Studio) |
+| LLM Interface | OpenAI |
 | Storage | SQLite + filesystem |
-| Interface | Telegram Bot API |
+| Interface | Telegram Bot API, CLI |
 
 ## Agent Persona Files
 
