@@ -33,14 +33,14 @@
 
 Exit criteria: Bot remembers previous conversations.
 
-## Phase 3: Multi-Provider
+## Phase 3: Multi-Provider (Complete)
 **Goal**: LLM flexibility and cost optimization
 
 - [x] Provider router with fallback logic
 - [x] Cost tracking per request
-- [ ] OpenRouter integration
-- [ ] Local LLM support (Ollama/LM Studio)
-- [ ] Model selection by task type
+- [x] OpenRouter integration
+- [x] Local LLM support (Ollama/LM Studio)
+- [x] Model selection by task type (TaskType enum)
 
 Exit criteria: Different queries route to appropriate LLM.
 
@@ -107,10 +107,10 @@ Exit criteria: Natural multimodal conversations.
 
 ## Current Focus
 
-**Phase 2: Memory completion + Phase 3: Multi-Provider**
+**Phase 2 completion + Phase 4 start**
 
 Next actions:
-1. Add conversation summarization
-2. Implement OpenRouter provider
-3. Add local LLM support
-4. Test end-to-end with Telegram
+1. Add conversation summarization on session end
+2. Memory importance scoring
+3. Test end-to-end with Telegram
+4. Begin background agent infrastructure
