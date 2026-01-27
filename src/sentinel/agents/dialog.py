@@ -9,6 +9,7 @@ from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
+from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
@@ -174,7 +175,7 @@ class DialogAgent(BaseAgent):
         logger.debug(f"DialogAgent conversation: {len(self.context.conversation)} messages")
 
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
-        response = await self.llm.complete(llm_messages, llm_config)
+        response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT)
         logger.debug(f"DialogAgent response: {len(response.content)} chars")
 
         response_msg = Message(
@@ -274,7 +275,7 @@ class DialogAgent(BaseAgent):
         messages = [{"role": "user", "content": SUMMARIZE_PROMPT.format(conversation=conv_text)}]
 
         try:
-            response = await self.llm.complete(messages, llm_config)
+            response = await self.llm.complete(messages, llm_config, task=TaskType.SUMMARIZATION)
             summary = response.content.strip()
 
             # Score importance
@@ -306,7 +307,7 @@ class DialogAgent(BaseAgent):
         try:
             llm_config = LLMConfig(model=None, max_tokens=10, temperature=0.1)
             messages = [{"role": "user", "content": IMPORTANCE_PROMPT.format(summary=summary)}]
-            response = await self.llm.complete(messages, llm_config)
+            response = await self.llm.complete(messages, llm_config, task=TaskType.IMPORTANCE_SCORING)
 
             # Parse the response - expect a number
             score_text = response.content.strip()

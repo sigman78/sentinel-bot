@@ -7,6 +7,7 @@ from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
+from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
 logger = get_logger("agents.sleep")
@@ -98,7 +99,7 @@ class SleepAgent(BaseAgent):
         messages = [{"role": "user", "content": EXTRACT_FACTS_PROMPT.format(summaries=summaries)}]
 
         try:
-            response = await self.llm.complete(messages, llm_config)
+            response = await self.llm.complete(messages, llm_config, task=TaskType.FACT_EXTRACTION)
             content = response.content.strip()
 
             # Parse JSON array from response
@@ -126,7 +127,7 @@ class SleepAgent(BaseAgent):
         messages = [{"role": "user", "content": CONSOLIDATE_PROMPT.format(summaries=summaries)}]
 
         try:
-            response = await self.llm.complete(messages, llm_config)
+            response = await self.llm.complete(messages, llm_config, task=TaskType.SUMMARIZATION)
             return response.content.strip()
         except Exception as e:
             logger.warning(f"Consolidation failed: {e}")

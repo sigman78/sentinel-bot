@@ -10,17 +10,6 @@ logger = get_logger("llm.openrouter")
 
 OPENROUTER_BASE = "https://openrouter.ai/api/v1"
 
-# Popular models and their pricing (per 1M tokens)
-PRICING = {
-    "anthropic/claude-3.5-sonnet": {"input": 3.0, "output": 15.0},
-    "anthropic/claude-3-haiku": {"input": 0.25, "output": 1.25},
-    "openai/gpt-4o": {"input": 2.5, "output": 10.0},
-    "openai/gpt-4o-mini": {"input": 0.15, "output": 0.6},
-    "google/gemini-pro-1.5": {"input": 1.25, "output": 5.0},
-    "meta-llama/llama-3.1-70b-instruct": {"input": 0.52, "output": 0.75},
-    "mistralai/mistral-large": {"input": 2.0, "output": 6.0},
-}
-
 
 class OpenRouterProvider(LLMProvider):
     """OpenRouter multi-model provider."""
@@ -110,11 +99,18 @@ class OpenRouterProvider(LLMProvider):
             return False
 
     def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
-        """Calculate cost in USD."""
-        prices = PRICING.get(model, {"input": 1.0, "output": 2.0})  # Default fallback
-        input_cost = (input_tokens / 1_000_000) * prices["input"]
-        output_cost = (output_tokens / 1_000_000) * prices["output"]
-        return input_cost + output_cost
+        """Calculate cost in USD using registry."""
+        from sentinel.llm.registry import get_model_info
+
+        model_info = get_model_info(model)
+        if model_info:
+            input_cost = (input_tokens / 1_000_000) * model_info.cost_per_1m_input
+            output_cost = (output_tokens / 1_000_000) * model_info.cost_per_1m_output
+            return input_cost + output_cost
+
+        # Fallback for unknown models
+        logger.warning(f"Unknown model {model}, cost calculation unavailable")
+        return 0.0
 
     async def close(self) -> None:
         """Close HTTP client."""

@@ -11,18 +11,28 @@ logger = get_logger("llm.router")
 
 class TaskType(Enum):
     """Task categories for model selection."""
-    CHAT = "chat"              # General conversation - use primary
-    REASONING = "reasoning"    # Complex reasoning - use best available
-    SIMPLE = "simple"          # Simple tasks - use cheap/fast model
-    BACKGROUND = "background"  # Async tasks - use local if available
+    CHAT = "chat"
+    REASONING = "reasoning"
+    SIMPLE = "simple"
+    BACKGROUND = "background"
+    SUMMARIZATION = "summarization"
+    TOOL_CALL = "tool_call"
+    INTER_AGENT = "inter_agent"
+    FACT_EXTRACTION = "fact_extraction"
+    IMPORTANCE_SCORING = "importance_scoring"
 
 
-# Model recommendations per task type
-TASK_MODELS = {
-    TaskType.CHAT: {"provider": ProviderType.CLAUDE, "model": None},  # Use default
-    TaskType.REASONING: {"provider": ProviderType.CLAUDE, "model": "claude-opus-4-20250514"},
-    TaskType.SIMPLE: {"provider": ProviderType.OPENROUTER, "model": "openai/gpt-4o-mini"},
-    TaskType.BACKGROUND: {"provider": ProviderType.LOCAL, "model": None},
+# Map task types to difficulty levels (1=Easy, 2=Intermediate, 3=Hard)
+TASK_DIFFICULTY: dict[TaskType, int] = {
+    TaskType.CHAT: 3,  # Hard - complex conversation, maintain personality
+    TaskType.REASONING: 3,  # Hard - complex logic
+    TaskType.FACT_EXTRACTION: 2,  # Intermediate - extract structured info
+    TaskType.SUMMARIZATION: 2,  # Intermediate - condense content
+    TaskType.BACKGROUND: 2,  # Intermediate - consolidation tasks
+    TaskType.SIMPLE: 1,  # Easy - basic operations
+    TaskType.TOOL_CALL: 1,  # Easy - structured I/O
+    TaskType.INTER_AGENT: 1,  # Easy - high volume simple comms
+    TaskType.IMPORTANCE_SCORING: 1,  # Easy - simple classification
 }
 
 
@@ -31,11 +41,11 @@ class LLMRouter:
 
     def __init__(self):
         self._providers: dict[ProviderType, LLMProvider] = {}
-        self._fallback_order = [
-            ProviderType.CLAUDE,
-            ProviderType.OPENROUTER,
-            ProviderType.LOCAL,
-        ]
+        self._cost_tracker: "CostTracker | None" = None
+
+    def set_cost_tracker(self, tracker: "CostTracker") -> None:
+        """Set cost tracking service."""
+        self._cost_tracker = tracker
 
     def register(self, provider: LLMProvider) -> None:
         """Register a provider."""
@@ -58,40 +68,103 @@ class LLMRouter:
         preferred: ProviderType | None = None,
         task: TaskType | None = None,
     ) -> LLMResponse:
-        """Route completion to best available provider."""
-        # Determine provider order based on task or preference
-        if task and not preferred:
-            rec = TASK_MODELS.get(task, {})
-            preferred = rec.get("provider")
-            if not config.model:
-                config = LLMConfig(
-                    model=rec.get("model"),
-                    max_tokens=config.max_tokens,
-                    temperature=config.temperature,
-                    system_prompt=config.system_prompt,
+        """Route completion to optimal provider based on task/cost.
+
+        Args:
+            messages: List of message dicts with role/content
+            config: LLM configuration (model, tokens, temperature)
+            preferred: Preferred provider (optional)
+            task: Task type for intelligent routing (optional)
+
+        Returns:
+            LLMResponse with content and metadata
+        """
+        from sentinel.llm.registry import get_models_by_difficulty, rank_models_by_cost
+
+        # 1. Determine difficulty level from task
+        difficulty = TASK_DIFFICULTY.get(task, 2) if task else 2
+
+        # 2. Check budget - downgrade if approaching limit
+        if self._cost_tracker and self._cost_tracker.should_use_cheaper_model():
+            if difficulty > 1:
+                original_difficulty = difficulty
+                difficulty = max(1, difficulty - 1)
+                logger.info(
+                    f"Budget at {self._cost_tracker.get_cost_summary()['percent_used']:.1f}%: "
+                    f"downgraded difficulty {original_difficulty} -> {difficulty}"
                 )
 
-        # Build provider order
-        order = []
-        if preferred and preferred in self._providers:
-            order.append(preferred)
-        for p in self._fallback_order:
-            if p not in order and p in self._providers:
-                order.append(p)
+        # 3. Get candidate models for this difficulty
+        candidates = get_models_by_difficulty(difficulty)
 
-        if not order:
-            raise RuntimeError("No LLM providers registered")
+        # 4. Filter by available providers
+        available = [m for m in candidates if m.provider in self._providers]
 
+        if not available:
+            # Fallback: try easier difficulty if none available
+            if difficulty > 1:
+                logger.warning(
+                    f"No models available for difficulty {difficulty}, trying easier"
+                )
+                return await self.complete(
+                    messages, config, preferred=None, task=TaskType.SIMPLE
+                )
+            raise RuntimeError(
+                f"No providers available for difficulty {difficulty}"
+            )
+
+        # 5. Honor preferred provider if specified
+        if preferred:
+            available = [m for m in available if m.provider == preferred] + [
+                m for m in available if m.provider != preferred
+            ]
+
+        # 6. Sort by cost (cheapest first within difficulty)
+        available = rank_models_by_cost(available)
+
+        # 7. Try each candidate in order
         last_error: Exception | None = None
-        for provider_type in order:
-            provider = self._providers[provider_type]
+        for model_cap in available:
+            provider = self._providers[model_cap.provider]
+
+            # Use explicit model from config if set, otherwise from registry
+            model_to_use = config.model or model_cap.model_id
+
             try:
-                response = await provider.complete(messages, config)
+                response = await provider.complete(
+                    messages,
+                    LLMConfig(
+                        model=model_to_use,
+                        max_tokens=config.max_tokens,
+                        temperature=config.temperature,
+                        system_prompt=config.system_prompt,
+                    ),
+                )
+
+                # Track cost
+                if self._cost_tracker:
+                    self._cost_tracker.add_cost(response.cost_usd)
+
+                logger.info(
+                    f"Task {task.value if task else 'default'}: "
+                    f"used {response.model} (difficulty={difficulty}, "
+                    f"cost=${response.cost_usd:.4f})"
+                )
                 return response
+
             except Exception as e:
-                logger.warning(f"Provider {provider_type.value} failed: {e}")
+                logger.warning(
+                    f"Model {model_to_use} ({model_cap.provider.value}) failed: {e}"
+                )
                 last_error = e
                 continue
+
+        # 8. If all same-difficulty failed, try easier models as fallback
+        if difficulty > 1:
+            logger.warning("All models failed, trying easier difficulty")
+            return await self.complete(
+                messages, config, preferred=None, task=TaskType.SIMPLE
+            )
 
         raise RuntimeError(f"All providers failed. Last error: {last_error}")
 
@@ -119,11 +192,16 @@ class LLMRouter:
 def create_default_router() -> LLMRouter:
     """Create router with providers from settings."""
     from sentinel.llm.claude import ClaudeProvider
+    from sentinel.llm.cost_tracker import CostTracker
     from sentinel.llm.local import LocalProvider
     from sentinel.llm.openrouter import OpenRouterProvider
 
     settings = get_settings()
     router = LLMRouter()
+
+    # Set up cost tracking
+    cost_tracker = CostTracker(daily_limit=settings.daily_cost_limit)
+    router.set_cost_tracker(cost_tracker)
 
     # Claude (primary)
     if settings.anthropic_api_key:

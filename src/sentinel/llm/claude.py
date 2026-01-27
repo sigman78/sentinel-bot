@@ -13,13 +13,6 @@ from sentinel.llm.base import LLMConfig, LLMProvider, LLMResponse, ProviderType
 
 logger = get_logger("llm.claude")
 
-# Pricing per 1M tokens (USD) - claude-sonnet-4-20250514
-PRICING = {
-    "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-    "claude-opus-4-20250514": {"input": 15.0, "output": 75.0},
-    "claude-haiku-3-5-20241022": {"input": 0.80, "output": 4.0},
-}
-
 
 class ClaudeProvider(LLMProvider):
     """Anthropic Claude API provider."""
@@ -113,8 +106,15 @@ class ClaudeProvider(LLMProvider):
             return False
 
     def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
-        """Calculate cost in USD for token usage."""
-        prices = PRICING.get(model, PRICING["claude-sonnet-4-20250514"])
-        input_cost = (input_tokens / 1_000_000) * prices["input"]
-        output_cost = (output_tokens / 1_000_000) * prices["output"]
-        return input_cost + output_cost
+        """Calculate cost in USD using registry."""
+        from sentinel.llm.registry import get_model_info
+
+        model_info = get_model_info(model)
+        if model_info:
+            input_cost = (input_tokens / 1_000_000) * model_info.cost_per_1m_input
+            output_cost = (output_tokens / 1_000_000) * model_info.cost_per_1m_output
+            return input_cost + output_cost
+
+        # Fallback for unknown models
+        logger.warning(f"Unknown model {model}, cost calculation unavailable")
+        return 0.0

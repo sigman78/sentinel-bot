@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     max_context_messages: int = Field(default=20, description="Max messages in context")
     daily_cost_limit: float = Field(default=5.0, description="Daily API cost limit USD")
 
+    # LLM Routing
+    cost_threshold_downgrade: float = Field(
+        default=0.8,
+        description="Downgrade model difficulty at this % of budget (0.0-1.0)",
+    )
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / self.db_name
