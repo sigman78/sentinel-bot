@@ -83,3 +83,32 @@ async def test_delete_memory(memory_store: SQLiteMemoryStore):
 
     result = await memory_store.get("del-1")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_recent(memory_store: SQLiteMemoryStore):
+    """Recent memories retrieval works."""
+    for i in range(3):
+        entry = MemoryEntry(
+            id=f"recent-{i}",
+            type=MemoryType.EPISODIC,
+            content=f"Event {i}",
+            timestamp=datetime.now(),
+        )
+        await memory_store.store(entry)
+
+    recent = await memory_store.get_recent(limit=2)
+    assert len(recent) == 2
+
+
+@pytest.mark.asyncio
+async def test_user_profile_core_memory(memory_store: SQLiteMemoryStore):
+    """User profile stored in core memory."""
+    await memory_store.set_core("user_name", "TestUser")
+    await memory_store.set_core("user_context", "Prefers concise responses")
+
+    name = await memory_store.get_core("user_name")
+    context = await memory_store.get_core("user_context")
+
+    assert name == "TestUser"
+    assert context == "Prefers concise responses"

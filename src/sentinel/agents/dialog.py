@@ -1,9 +1,4 @@
-"""
-Main dialog agent.
-
-Primary user-facing agent handling conversations.
-Uses Claude as LLM with memory-augmented context.
-"""
+"""Dialog agent - primary user-facing conversation handler."""
 
 from datetime import datetime
 from uuid import uuid4
@@ -12,24 +7,19 @@ from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
-from sentinel.memory.base import MemoryStore
+from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
 logger = get_logger("agents.dialog")
 
 DEFAULT_SYSTEM_PROMPT = """You are Sentinel, a personal AI assistant.
 
-You have access to memories about the user and past conversations.
-Be helpful, concise, and remember context from previous interactions.
+User: {user_name}
+{user_context}
 
-Current memories:
+Recent memories:
 {memories}
 
-Guidelines:
-- Be direct and helpful
-- Remember user preferences and past context
-- Ask for clarification when needed
-- Respect user privacy
-"""
+Be direct, remember context, respect privacy."""
 
 
 class DialogAgent(BaseAgent):
@@ -46,18 +36,34 @@ class DialogAgent(BaseAgent):
             system_prompt=system_prompt or DEFAULT_SYSTEM_PROMPT,
         )
         super().__init__(config, llm, memory)
-        self._max_history = 20  # Keep last N messages in context
+        self._max_history = 20
+        self._user_name = "User"
+        self._user_context = ""
 
     async def initialize(self) -> None:
-        """Load relevant memories for context."""
+        """Load user profile from core memory."""
         await super().initialize()
-        # Memory retrieval happens per-message to get fresh context
+        await self._load_user_profile()
+
+    async def _load_user_profile(self) -> None:
+        """Load or bootstrap user profile from core memory."""
+        if not hasattr(self.memory, "get_core"):
+            return
+
+        name = await self.memory.get_core("user_name")
+        if name:
+            self._user_name = name
+        else:
+            await self.memory.set_core("user_name", "User")
+
+        context = await self.memory.get_core("user_context")
+        if context:
+            self._user_context = context
 
     async def process(self, message: Message) -> Message:
         """Process user message and generate response."""
         self.state = AgentState.ACTIVE
 
-        # Add user message to conversation
         self.context.conversation.append(message)
         self._trim_history()
 
@@ -65,19 +71,20 @@ class DialogAgent(BaseAgent):
         memories = await self._get_relevant_memories(message.content)
         memory_text = self._format_memories(memories)
 
-        # Build prompt with memories
-        system_prompt = self.config.system_prompt.format(memories=memory_text)
+        # Build prompt with user profile and memories
+        system_prompt = self.config.system_prompt.format(
+            user_name=self._user_name,
+            user_context=self._user_context,
+            memories=memory_text,
+        )
 
-        # Build messages for LLM
         llm_messages = [{"role": "system", "content": system_prompt}]
         for msg in self.context.conversation:
             llm_messages.append(msg.to_llm_format())
 
-        # Generate response
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
         response = await self.llm.complete(llm_messages, llm_config)
 
-        # Create response message
         response_msg = Message(
             id=str(uuid4()),
             timestamp=datetime.now(),
@@ -91,16 +98,39 @@ class DialogAgent(BaseAgent):
             },
         )
 
-        # Add to conversation
         self.context.conversation.append(response_msg)
+
+        # Persist exchange to episodic memory
+        await self._persist_exchange(message, response_msg)
 
         self.state = AgentState.READY
         return response_msg
+
+    async def _persist_exchange(self, user_msg: Message, assistant_msg: Message) -> None:
+        """Save conversation exchange to episodic memory."""
+        try:
+            summary = f"User: {user_msg.content[:100]}... → Assistant responded"
+            if len(user_msg.content) <= 100:
+                summary = f"User: {user_msg.content}"
+
+            entry = MemoryEntry(
+                id=str(uuid4()),
+                type=MemoryType.EPISODIC,
+                content=summary,
+                timestamp=datetime.now(),
+                importance=0.5,
+                metadata={"user_msg_id": user_msg.id, "assistant_msg_id": assistant_msg.id},
+            )
+            await self.memory.store(entry)
+        except Exception as e:
+            logger.warning(f"Failed to persist exchange: {e}")
 
     async def _get_relevant_memories(self, query: str) -> list[dict]:
         """Retrieve memories relevant to current query."""
         try:
             entries = await self.memory.retrieve(query, limit=5)
+            if not entries and hasattr(self.memory, "get_recent"):
+                entries = await self.memory.get_recent(limit=5)
             return [{"content": e.content, "timestamp": e.timestamp} for e in entries]
         except Exception as e:
             logger.warning(f"Memory retrieval failed: {e}")
@@ -109,15 +139,23 @@ class DialogAgent(BaseAgent):
     def _format_memories(self, memories: list[dict]) -> str:
         """Format memories for prompt injection."""
         if not memories:
-            return "(No relevant memories)"
+            return "(No prior context)"
         lines = []
         for m in memories:
-            ts = m["timestamp"].strftime("%Y-%m-%d") if m.get("timestamp") else "unknown"
-            lines.append(f"- [{ts}] {m['content']}")
+            ts = m["timestamp"].strftime("%Y-%m-%d") if m.get("timestamp") else ""
+            lines.append(f"- [{ts}] {m['content']}" if ts else f"- {m['content']}")
         return "\n".join(lines)
 
     def _trim_history(self) -> None:
         """Keep conversation history within limits."""
         if len(self.context.conversation) > self._max_history:
-            # Keep system context awareness by preserving first and recent messages
             self.context.conversation = self.context.conversation[-self._max_history:]
+
+    async def update_user_profile(self, key: str, value: str) -> None:
+        """Update user profile in core memory."""
+        if hasattr(self.memory, "set_core"):
+            await self.memory.set_core(key, value)
+            if key == "user_name":
+                self._user_name = value
+            elif key == "user_context":
+                self._user_context = value

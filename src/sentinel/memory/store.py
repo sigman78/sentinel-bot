@@ -1,9 +1,4 @@
-"""
-SQLite-based memory store implementation.
-
-Implements hierarchical memory with FTS5 full-text search.
-Borrowed concept from Letta: self-editing core memory blocks.
-"""
+"""SQLite memory store with FTS5 search and Letta-inspired core memory blocks."""
 
 import json
 from datetime import datetime
@@ -277,3 +272,23 @@ class SQLiteMemoryStore(MemoryStore):
         await self.conn.execute("DELETE FROM memory_fts WHERE id = ?", (memory_id,))
         await self.conn.commit()
         return True
+
+    async def get_recent(self, limit: int = 10) -> list[MemoryEntry]:
+        """Get most recent memories (fallback when search returns empty)."""
+        results = []
+        async with self.conn.execute(
+            "SELECT id, timestamp, summary, importance FROM episodes "
+            "ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        ) as cursor:
+            async for row in cursor:
+                results.append(
+                    MemoryEntry(
+                        id=row[0],
+                        type=MemoryType.EPISODIC,
+                        content=row[2],
+                        timestamp=datetime.fromisoformat(row[1]) if row[1] else datetime.now(),
+                        importance=row[3],
+                    )
+                )
+        return results

@@ -1,9 +1,4 @@
-"""
-Telegram bot interface.
-
-Primary human-AI communication channel using python-telegram-bot.
-Single-user mode: only responds to configured owner.
-"""
+"""Telegram bot interface - single-user mode."""
 
 from datetime import datetime
 
