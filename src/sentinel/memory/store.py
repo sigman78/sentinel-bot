@@ -60,10 +60,9 @@ CREATE TABLE IF NOT EXISTS facts (
 
 -- FTS5 index for full-text search
 CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
-    id,
+    id UNINDEXED,
     content,
-    memory_type,
-    content='',
+    memory_type UNINDEXED,
     tokenize='porter'
 );
 
@@ -182,33 +181,41 @@ class SQLiteMemoryStore(MemoryStore):
         limit: int = 10,
     ) -> list[MemoryEntry]:
         """Retrieve relevant memories using FTS5 search."""
-        # Build FTS query
-        type_filter = ""
-        if memory_type:
-            type_filter = f"AND memory_type = '{memory_type.value}'"
-
-        sql = f"""
-            SELECT id, content, memory_type
-            FROM memory_fts
-            WHERE memory_fts MATCH ? {type_filter}
-            ORDER BY rank
-            LIMIT ?
-        """
-
         results = []
         try:
+            # Build type filter for FTS query
+            type_filter = ""
+            if memory_type:
+                type_filter = f" AND memory_type = '{memory_type.value}'"
+
+            # Search FTS5 table (now stores content directly)
+            sql = f"""
+                SELECT id, content, memory_type
+                FROM memory_fts
+                WHERE content MATCH ? {type_filter}
+                ORDER BY rank
+                LIMIT ?
+            """
+
             async with self.conn.execute(sql, (query, limit)) as cursor:
                 async for row in cursor:
-                    results.append(
-                        MemoryEntry(
-                            id=row[0],
-                            type=MemoryType(row[2]),
-                            content=row[1],
-                            timestamp=datetime.now(),  # FTS doesn't store timestamp
-                        )
-                    )
+                    entry_id = row[0]
+                    entry_type = MemoryType(row[2])
+
+                    # Fetch full details from source table
+                    if entry_type == MemoryType.EPISODIC:
+                        full_entry = await self.get(entry_id)
+                        if full_entry:
+                            results.append(full_entry)
+                    elif entry_type == MemoryType.SEMANTIC:
+                        full_entry = await self.get(entry_id)
+                        if full_entry:
+                            results.append(full_entry)
+
+            logger.debug(f"FTS search returned {len(results)} results for query: {query}")
+
         except Exception as e:
-            logger.debug(f"FTS search failed, falling back to LIKE: {e}")
+            logger.warning(f"FTS search failed, falling back to LIKE: {e}")
             # Fallback to simple LIKE search
             results = await self._fallback_search(query, memory_type, limit)
 
