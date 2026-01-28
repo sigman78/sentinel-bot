@@ -1,11 +1,23 @@
 """Execute parsed tool calls."""
 
+import json
+from datetime import datetime
+
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ActionResult
 from sentinel.tools.parser import ToolCall
 from sentinel.tools.registry import ToolRegistry
 
 logger = get_logger("tools.executor")
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """JSON encoder that handles datetime objects."""
+
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 class ToolExecutor:
@@ -104,10 +116,8 @@ class ToolExecutor:
             if result.success:
                 lines.append(f"Tool {i}: SUCCESS")
                 if result.data:
-                    # Format data as JSON
-                    import json
-
-                    lines.append(f"Result: {json.dumps(result.data, indent=2)}")
+                    # Format data as JSON (with datetime handling)
+                    lines.append(f"Result: {json.dumps(result.data, indent=2, cls=DateTimeEncoder)}")
             else:
                 lines.append(f"Tool {i}: FAILED")
                 lines.append(f"Error: {result.error}")
