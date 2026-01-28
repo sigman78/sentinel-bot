@@ -220,35 +220,20 @@ class DialogAgent(BaseAgent):
             results = await self._tool_executor.execute_all(executor_calls)
             logger.debug(f"Tool execution results: {[r.success for r in results]}")
 
-            # Format results back for provider
-            if self.llm.provider_type.value == "claude":
-                # Anthropic format: add assistant message, then user message with tool_result
-                llm_messages.append({
-                    "role": "assistant",
-                    "content": response.content or "",
-                    # Note: Anthropic expects tool_use blocks in content, but we can't easily reconstruct
-                    # For now, use simplified approach with text-based results
-                })
+            # Format results for second LLM call
+            # Simplified approach: Just add tool results as a new user message
+            # (avoids complexity of reconstructing tool_use blocks for Anthropic)
+            results_text = self._tool_executor.format_results_for_llm(results)
 
-                # Format tool results as text
-                results_text = self._tool_executor.format_results_for_llm(results)
-                llm_messages.append({
-                    "role": "user",
-                    "content": f"Tool results:\n\n{results_text}\n\nPlease provide a natural response based on these results.",
-                })
-            else:
-                # OpenAI format: add assistant message with tool_calls, then tool messages
-                llm_messages.append({
-                    "role": "assistant",
-                    "content": response.content or "",
-                })
-
-                # Format tool results as text for now (simplified)
-                results_text = self._tool_executor.format_results_for_llm(results)
-                llm_messages.append({
-                    "role": "user",
-                    "content": f"Tool results:\n\n{results_text}\n\nPlease provide a natural response based on these results.",
-                })
+            llm_messages.append({
+                "role": "user",
+                "content": (
+                    f"I called the requested tools and got these results:\n\n"
+                    f"{results_text}\n\n"
+                    f"Please provide a natural, conversational response to my original request "
+                    f"based on these tool results."
+                ),
+            })
 
             # Get final natural language response from LLM (no tools this time)
             final_response = await self.llm.complete(

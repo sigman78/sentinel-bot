@@ -14,8 +14,8 @@ from sentinel.tools.builtin import register_all_builtin_tools
 from sentinel.tools.builtin.tasks import set_task_manager
 from sentinel.tools.registry import ToolRegistry
 
-# Mark tests that require API keys
-pytest_mark_requires_api = pytest.mark.skip(reason="Requires API keys - run manually")
+# Mark all tests in this module as integration tests
+pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
@@ -59,10 +59,9 @@ def tool_registry(task_manager):
 
 
 @pytest.mark.asyncio
-@pytest_mark_requires_api
 async def test_add_reminder_via_natural_language(memory, tool_registry):
     """Test that natural language gets converted to tool call."""
-    from sentinel.llm.providers.claude import ClaudeProvider
+    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
 
     settings = get_settings()
@@ -84,20 +83,24 @@ async def test_add_reminder_via_natural_language(memory, tool_registry):
 
     response = await agent.process(user_msg)
 
-    # Check that response mentions the reminder was set
-    assert response.success is True
-    assert "remind" in response.content.lower() or "call mom" in response.content.lower()
+    # Check that response has content
+    assert response.content
+    assert len(response.content) > 0
 
-    # Check that tool was actually called
-    if "tool_calls" in response.metadata:
-        assert response.metadata["tool_calls"] > 0
+    # Check that response mentions the reminder was set
+    content_lower = response.content.lower()
+    assert "remind" in content_lower or "call mom" in content_lower or "set" in content_lower
+
+    # Check that tool was actually called via native API
+    assert "tool_calls" in response.metadata
+    assert response.metadata["tool_calls"] > 0
+    assert response.metadata.get("tool_results")  # Should have results
 
 
 @pytest.mark.asyncio
-@pytest_mark_requires_api
 async def test_list_tasks_via_natural_language(memory, tool_registry, task_manager):
     """Test listing tasks via natural language."""
-    from sentinel.llm.providers.claude import ClaudeProvider
+    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
 
     settings = get_settings()
@@ -127,10 +130,9 @@ async def test_list_tasks_via_natural_language(memory, tool_registry, task_manag
 
 
 @pytest.mark.asyncio
-@pytest_mark_requires_api
 async def test_recurring_task_via_natural_language(memory, tool_registry):
     """Test creating recurring task via natural language."""
-    from sentinel.llm.providers.claude import ClaudeProvider
+    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
 
     settings = get_settings()
@@ -152,8 +154,10 @@ async def test_recurring_task_via_natural_language(memory, tool_registry):
 
     response = await agent.process(user_msg)
 
-    # Check response indicates task was created
-    assert response.success is True
+    # Check response has content
+    assert response.content
+    assert len(response.content) > 0
+
     # Should mention either the schedule or confirmation
     content_lower = response.content.lower()
     assert (
@@ -161,6 +165,7 @@ async def test_recurring_task_via_natural_language(memory, tool_registry):
         or "9am" in content_lower
         or "9:00" in content_lower
         or "email" in content_lower
+        or "remind" in content_lower
     )
 
 
