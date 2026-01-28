@@ -4,14 +4,16 @@ Personal AI agents swarm - self-evolving assistant system.
 
 ## Features
 
-- Multi-agent orchestration with shared/specialized memories
-- Collaborative agents: for complex tasks agents work together in hierarchical human-like org, making multiple opinions, evaluating results
-- Background agents: sleep (memory consolidation), awareness (proactive notifications)
-- Memory hierarchy: core memory, episodic, semantic, vector db
-- LLM flexibility: Claude, OpenRouter, local providers - depending on task difficulty, agent and value
-- Telegram bot interface with persona support
-- Self automating: has 'isolated' workspace for agents to write and run code, interacting with host system and outside world
-- Self aware: checks own performance, assistant quality, assess satisfaction, makes notes, updates human-readable agenda
+- **Multi-agent orchestration** with shared/specialized memories
+- **Background agents**: sleep (memory consolidation), awareness (proactive notifications)
+- **Memory hierarchy**: core memory, episodic, semantic with FTS5 full-text search
+- **Intelligent LLM routing**: Claude, OpenRouter, local providers - auto-selected by task difficulty and cost
+- **Task scheduling**: One-time reminders and recurring tasks with natural language parsing
+- **Tool calling**: Native API integration for function execution (Anthropic/OpenAI)
+- **Sandboxed code execution**: Isolated Python workspace for agent-written scripts
+- **Telegram bot** interface with persona support
+- **Self-aware**: Updates human-readable agenda with notes and plans
+- **Cost tracking**: Budget enforcement with automatic model downgrading
 
 ## Installation
 
@@ -83,6 +85,12 @@ uv run sentinel health
 | `/status` | Agent status, providers, memory |
 | `/clear` | Summarize and clear conversation |
 | `/agenda` | Show current agenda |
+| `/remind <delay> <message>` | Set one-time reminder (e.g., "5m call mom") |
+| `/schedule <pattern> <message>` | Create recurring task (e.g., "daily 9am check email") |
+| `/tasks` | List all scheduled tasks |
+| `/cancel <task_id>` | Cancel a scheduled task |
+
+Natural language also works: "Remind me in 10 minutes to take a break"
 
 ## Development
 

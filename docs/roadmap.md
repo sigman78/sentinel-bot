@@ -55,30 +55,65 @@ Exit criteria: Different queries route to appropriate LLM.
 
 Exit criteria: Bot consolidates memories during idle, can proactively notify.
 
-## Phase 5: Intelligent LLM Routing
+## Phase 5: Intelligent LLM Routing (Complete)
 **Goal**: Cost-optimized model selection by task type
 
-- [ ] Task-based model selection (not fallback)
-- [ ] Opus/GLM 4.7/K2 level: Planning, dialog, complex reasoning, context rebuilds, summary
-- [ ] Sonnet, non-reasoning : Simpler agents, inter-agent communication
-- [ ] QWen instruct, Ministral, GLM-Air: Tool calls, agent instructions
-- [ ] Multi-modal models: Image summarization, text recognition, audio transcription
-- [ ] Cost/value assessment per task type
-- [ ] Model capability registry
+- [x] Task-based model selection (not fallback)
+- [x] Model difficulty registry (HARD/INTERMEDIATE/EASY)
+- [x] Task→Difficulty mapping (CHAT→HARD, SUMMARIZATION→INTERMEDIATE, etc)
+- [x] Cost tracking per request with budget enforcement
+- [x] Automatic downgrade when approaching budget limit
+- [x] Model capability filtering (multimodal, context window)
+- [x] Provider fallback and health checking
+- [x] Integration tests for routing behavior
 
-Exit criteria: Each task type routes to optimal model by cost/capability.
+Exit criteria: Each task type routes to optimal model by cost/capability. ✅
 
-## Phase 6: Tool Workspace
+## Phase 6: Tool Workspace (Complete)
 **Goal**: Sandboxed environment for code execution
 
-- [ ] Workspace directory structure (`data/workspace/`)
-- [ ] Python environment isolation (venv per workspace)
-- [ ] Script execution with output capture
-- [ ] File read/write within sandbox
-- [ ] Dependency management (uv/pip)
-- [ ] Execution timeout and resource limits
+- [x] Workspace directory structure (`data/workspace/`)
+- [x] Python environment isolation (venv per workspace)
+- [x] Script execution with output capture (stdout/stderr)
+- [x] File read/write within sandbox with path validation
+- [x] Execution timeout and resource limits
+- [x] Safety validator (blocks dangerous imports/functions)
+- [x] CodeAgent for LLM-driven script generation
+- [x] Comprehensive test coverage
 
-Exit criteria: Bot can write, execute Python scripts and read results safely.
+Exit criteria: Bot can write, execute Python scripts and read results safely. ✅
+
+## Phase 6.5: Task Scheduling System (Complete)
+**Goal**: Proactive async task execution
+
+- [x] Task type system (REMINDER, AGENT_TASK, API_CALL, WEB_SEARCH)
+- [x] Schedule parsing (delays: "5m", "2h"; patterns: "daily 9am", "weekdays 6pm")
+- [x] SQLite-backed task persistence with indexing
+- [x] Recurring task rescheduling after execution
+- [x] Task execution engine with notification callbacks
+- [x] Telegram commands: `/remind`, `/schedule`, `/tasks`, `/cancel`
+- [x] Integration with AwarenessAgent for proactive checks
+- [x] Comprehensive integration test suite
+
+Documentation: [task_system_implementation.md](task_system_implementation.md), [task_system_testing.md](task_system_testing.md)
+
+Exit criteria: Users can schedule one-time and recurring tasks via natural language. ✅
+
+## Phase 6.6: Tool Calling Framework (Complete)
+**Goal**: LLM-driven function execution via native APIs
+
+- [x] Tool definition system with `@tool` decorator
+- [x] Native API integration (Anthropic tool use, OpenAI function calling)
+- [x] Tool registry with provider-specific converters
+- [x] Built-in tools: task management, system utilities
+- [x] Tool executor with validation and error handling
+- [x] DialogAgent integration with two-pass approach
+- [x] Automatic tool result formatting for LLM
+- [x] Integration tests with live API calls
+
+Documentation: [tool_calling_design.md](tool_calling_design.md), [tool_calling_implementation.md](tool_calling_implementation.md)
+
+Exit criteria: Agent can call functions from natural language using native provider APIs. ✅
 
 ## Phase 7: Safety & Self-Modification
 **Goal**: Safe autonomous operation
@@ -132,10 +167,18 @@ Exit criteria: Natural multimodal conversations.
 
 ## Current Focus
 
-**Phase 5: Intelligent LLM Routing**
+**Phase 7: Safety & Self-Modification** (Not Started)
+
+Phases 0-6 complete including:
+- ✅ Core infrastructure and memory
+- ✅ Multi-provider LLM routing with cost optimization
+- ✅ Tool Workspace for sandboxed code execution
+- ✅ Task scheduling system for proactive behavior
+- ✅ Native API tool calling framework
 
 Next actions:
-1. Design task→model mapping strategy
-2. Implement model capability registry
-3. Update router to select by task type (not fallback)
-4. Add cost tracking per task category
+1. Design action classification system (read/write/execute severity levels)
+2. Implement approval workflow for high-risk actions
+3. Add audit logging for all agent actions
+4. Create test harness for proposed code changes
+5. Build self-modification sandbox using Tool Workspace
