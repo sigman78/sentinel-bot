@@ -71,6 +71,24 @@ After tool execution, you'll receive results and can respond naturally to the us
         """Check if tool exists."""
         return name in self._tools
 
+    def to_openai_tools(self) -> list[dict]:
+        """
+        Get all tools in OpenAI function calling format.
+
+        Returns:
+            List of tools in OpenAI format
+        """
+        return [tool.to_openai_function() for tool in self._tools.values()]
+
+    def to_anthropic_tools(self) -> list[dict]:
+        """
+        Get all tools in Anthropic tool use format.
+
+        Returns:
+            List of tools in Anthropic format
+        """
+        return [tool.to_anthropic_tool() for tool in self._tools.values()]
+
 
 # Global registry instance
 _global_registry: ToolRegistry | None = None

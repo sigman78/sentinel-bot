@@ -78,6 +78,71 @@ class Tool:
         # Type validation could be added here
         return True, None
 
+    def to_openai_function(self) -> dict:
+        """
+        Convert to OpenAI function calling format.
+
+        Returns:
+            Dict in OpenAI function format
+        """
+        properties = {}
+        required = []
+
+        for param in self.parameters:
+            properties[param.name] = {
+                "type": param.type,
+                "description": param.description,
+            }
+            if param.default is not None:
+                properties[param.name]["default"] = param.default
+
+            if param.required:
+                required.append(param.name)
+
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                },
+            },
+        }
+
+    def to_anthropic_tool(self) -> dict:
+        """
+        Convert to Anthropic tool use format.
+
+        Returns:
+            Dict in Anthropic tool format
+        """
+        properties = {}
+        required = []
+
+        for param in self.parameters:
+            properties[param.name] = {
+                "type": param.type,
+                "description": param.description,
+            }
+            if param.default is not None:
+                properties[param.name]["default"] = param.default
+
+            if param.required:
+                required.append(param.name)
+
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
+        }
+
 
 def tool(
     name: str,

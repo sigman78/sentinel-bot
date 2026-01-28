@@ -12,7 +12,7 @@ from sentinel.llm.base import LLMConfig, LLMProvider
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 from sentinel.tools.executor import ToolExecutor
-from sentinel.tools.parser import ToolParser
+from sentinel.tools.parser import ToolCall
 from sentinel.tools.registry import ToolRegistry
 
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
@@ -169,18 +169,14 @@ class DialogAgent(BaseAgent):
         memory_text = self._format_memories(memories)
         logger.debug(f"DialogAgent memories: {len(memories)} retrieved")
 
-        # Build system prompt with identity, agenda, context, and tools
-        tools_context = ""
-        if self._tool_registry:
-            tools_context = self._tool_registry.get_context_string()
-
+        # Build system prompt (without tool descriptions - tools passed via API)
         system_prompt = self.config.system_prompt.format(
             identity=self._identity,
             user_name=self._user_name,
             user_context=self._user_context or "(No additional context)",
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
-            tools=tools_context,
+            tools="",  # Empty - tools passed via native API
         )
         logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")
 
@@ -189,92 +185,109 @@ class DialogAgent(BaseAgent):
             llm_messages.append(msg.to_llm_format())
         logger.debug(f"DialogAgent conversation: {len(self.context.conversation)} messages")
 
+        # Prepare tools for native API
+        tools = None
+        if self._tool_registry:
+            # Convert to provider-specific format
+            if self.llm.provider_type.value == "claude":
+                tools = self._tool_registry.to_anthropic_tools()
+            else:
+                # OpenRouter, local, and others use OpenAI format
+                tools = self._tool_registry.to_openai_tools()
+            logger.debug(f"Prepared {len(tools)} tools for provider: {self.llm.provider_type.value}")
+
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
-        response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT)
+        response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT, tools=tools)
         logger.debug(f"DialogAgent response: {len(response.content)} chars")
 
-        # Check for tool calls in response
-        if self._tool_executor:
-            tool_calls = ToolParser.extract_calls(response.content)
-            if tool_calls:
-                logger.info(f"Detected {len(tool_calls)} tool call(s)")
+        # Check for native tool calls in response
+        if self._tool_executor and response.tool_calls:
+            tool_calls = response.tool_calls
+            logger.info(f"Detected {len(tool_calls)} native tool call(s): {[tc['name'] for tc in tool_calls]}")
 
-                # Execute tools
-                results = await self._tool_executor.execute_all(tool_calls)
+            # Convert native format to ToolCall objects for executor
+            executor_calls = []
+            for tc in tool_calls:
+                executor_calls.append(
+                    ToolCall(
+                        tool_name=tc["name"],
+                        arguments=tc["input"],
+                        raw_json="",  # Not available for native calls
+                    )
+                )
 
-                # Format results for LLM
+            # Execute tools
+            results = await self._tool_executor.execute_all(executor_calls)
+            logger.debug(f"Tool execution results: {[r.success for r in results]}")
+
+            # Format results back for provider
+            if self.llm.provider_type.value == "claude":
+                # Anthropic format: add assistant message, then user message with tool_result
+                llm_messages.append({
+                    "role": "assistant",
+                    "content": response.content or "",
+                    # Note: Anthropic expects tool_use blocks in content, but we can't easily reconstruct
+                    # For now, use simplified approach with text-based results
+                })
+
+                # Format tool results as text
                 results_text = self._tool_executor.format_results_for_llm(results)
-                logger.debug(f"Tool results: {results_text[:200]}")
-
-                # Add assistant's tool call response and results to conversation
-                llm_messages.append(
-                    {"role": "assistant", "content": response.content}
-                )
-
-                # Add tool results as user message with clear instruction
-                instruction = (
-                    f"The tools returned these results:\n\n{results_text}\n\n"
-                    "Please provide a natural, conversational response to my original question "
-                    "based on these results."
-                )
-                llm_messages.append(
-                    {"role": "user", "content": instruction}
-                )
-
-                # Get final natural language response from LLM
-                final_response = await self.llm.complete(
-                    llm_messages, llm_config, task=TaskType.CHAT
-                )
-                logger.debug(f"DialogAgent final response: '{final_response.content[:100]}'")
-
-                # Handle empty response
-                if not final_response.content or not final_response.content.strip():
-                    logger.warning("Empty final response from LLM, formatting results directly")
-                    # Extract key info from results and format nicely
-                    if results and results[0].success and results[0].data:
-                        data = results[0].data
-                        # For get_current_time, format nicely
-                        if "datetime" in data:
-                            final_response.content = (
-                                f"It's currently {data.get('time', '')} on "
-                                f"{data.get('weekday', '')}, {data.get('date', '')}."
-                            )
-                        else:
-                            final_response.content = f"Tool executed successfully: {data}"
-                    else:
-                        final_response.content = results_text
-
-                # Use final response
-                response_msg = Message(
-                    id=str(uuid4()),
-                    timestamp=datetime.now(),
-                    role="assistant",
-                    content=final_response.content,
-                    content_type=ContentType.TEXT,
-                    metadata={
-                        "model": final_response.model,
-                        "tokens": final_response.input_tokens + final_response.output_tokens,
-                        "cost_usd": final_response.cost_usd,
-                        "tool_calls": len(tool_calls),
-                        "tool_results": [r.success for r in results],
-                    },
-                )
+                llm_messages.append({
+                    "role": "user",
+                    "content": f"Tool results:\n\n{results_text}\n\nPlease provide a natural response based on these results.",
+                })
             else:
-                # No tool calls, use original response
-                response_msg = Message(
-                    id=str(uuid4()),
-                    timestamp=datetime.now(),
-                    role="assistant",
-                    content=response.content,
-                    content_type=ContentType.TEXT,
-                    metadata={
-                        "model": response.model,
-                        "tokens": response.input_tokens + response.output_tokens,
-                        "cost_usd": response.cost_usd,
-                    },
-                )
+                # OpenAI format: add assistant message with tool_calls, then tool messages
+                llm_messages.append({
+                    "role": "assistant",
+                    "content": response.content or "",
+                })
+
+                # Format tool results as text for now (simplified)
+                results_text = self._tool_executor.format_results_for_llm(results)
+                llm_messages.append({
+                    "role": "user",
+                    "content": f"Tool results:\n\n{results_text}\n\nPlease provide a natural response based on these results.",
+                })
+
+            # Get final natural language response from LLM (no tools this time)
+            final_response = await self.llm.complete(
+                llm_messages, llm_config, task=TaskType.CHAT, tools=None
+            )
+            logger.debug(f"DialogAgent final response: '{final_response.content[:100]}'")
+
+            # Handle empty response
+            if not final_response.content or not final_response.content.strip():
+                logger.warning("Empty final response from LLM, formatting results directly")
+                if results and results[0].success and results[0].data:
+                    data = results[0].data
+                    if "datetime" in data:
+                        final_response.content = (
+                            f"It's currently {data.get('time', '')} on "
+                            f"{data.get('weekday', '')}, {data.get('date', '')}."
+                        )
+                    else:
+                        final_response.content = f"Tool executed successfully: {data}"
+                else:
+                    final_response.content = results_text
+
+            # Use final response
+            response_msg = Message(
+                id=str(uuid4()),
+                timestamp=datetime.now(),
+                role="assistant",
+                content=final_response.content,
+                content_type=ContentType.TEXT,
+                metadata={
+                    "model": final_response.model,
+                    "tokens": final_response.input_tokens + final_response.output_tokens,
+                    "cost_usd": final_response.cost_usd,
+                    "tool_calls": len(tool_calls),
+                    "tool_results": [r.success for r in results],
+                },
+            )
         else:
-            # No tool support, use original response
+            # No tool calls, use original response
             response_msg = Message(
                 id=str(uuid4()),
                 timestamp=datetime.now(),

@@ -28,6 +28,7 @@ class LLMResponse:
     output_tokens: int = 0
     cost_usd: float = 0.0
     metadata: dict | None = None
+    tool_calls: list[dict] | None = None  # Native tool calls from API
 
 
 @dataclass
@@ -51,8 +52,20 @@ class LLMProvider(ABC):
         messages: list[dict[str, str]],
         config: LLMConfig,
         task: "TaskType | None" = None,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
-        """Generate completion from messages."""
+        """
+        Generate completion from messages.
+
+        Args:
+            messages: Conversation messages
+            config: LLM configuration
+            task: Task type for routing
+            tools: Tool definitions in provider-specific format (optional)
+
+        Returns:
+            LLMResponse with content and optional tool_calls
+        """
         ...
 
     @abstractmethod

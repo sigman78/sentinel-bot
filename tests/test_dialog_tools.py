@@ -31,6 +31,8 @@ def mock_llm():
     """Create mock LLM provider."""
     llm = Mock()
     llm.complete = AsyncMock()
+    llm.provider_type = Mock()
+    llm.provider_type.value = "claude"
     return llm
 
 
@@ -52,14 +54,21 @@ def tool_registry():
 async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
     """Test DialogAgent processes tool calls correctly."""
 
-    # First LLM call returns tool call
+    # First LLM call returns native tool call
     first_response = LLMResponse(
-        content='```json\n{"tool": "test_tool", "args": {"arg": "hello"}}\n```',
+        content="",
         model="test-model",
         provider=ProviderType.CLAUDE,
         input_tokens=10,
         output_tokens=20,
         cost_usd=0.001,
+        tool_calls=[
+            {
+                "id": "call_123",
+                "name": "test_tool",
+                "input": {"arg": "hello"},
+            }
+        ],
     )
 
     # Second LLM call returns natural language
@@ -103,14 +112,21 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
 async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry):
     """Test DialogAgent handles empty final response gracefully."""
 
-    # First LLM call returns tool call
+    # First LLM call returns native tool call
     first_response = LLMResponse(
-        content='```json\n{"tool": "test_tool", "args": {"arg": "test"}}\n```',
+        content="",
         model="test-model",
         provider=ProviderType.CLAUDE,
         input_tokens=10,
         output_tokens=20,
         cost_usd=0.001,
+        tool_calls=[
+            {
+                "id": "call_456",
+                "name": "test_tool",
+                "input": {"arg": "test"},
+            }
+        ],
     )
 
     # Second LLM call returns empty string (bug scenario)

@@ -36,6 +36,7 @@ class ClaudeProvider(LLMProvider):
         messages: list[dict[str, str]],
         config: LLMConfig,
         task=None,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         """Generate completion using Claude API."""
         model = config.model or self.default_model
@@ -53,24 +54,48 @@ class ClaudeProvider(LLMProvider):
         logger.debug(f"Claude request: model={model}, max_tokens={config.max_tokens}")
         if system_prompt:
             logger.debug(f"Claude system prompt ({len(system_prompt)} chars)")
+        if tools:
+            logger.debug(f"Claude tools: {len(tools)} available")
         for msg in api_messages:
             preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
             logger.debug(f"Claude [{msg['role']}]: {preview}")
 
         try:
-            response = await self.client.messages.create(
-                model=model,
-                max_tokens=config.max_tokens,
-                system=system_prompt or "",
-                messages=api_messages,
-            )
+            # Build request parameters
+            request_params = {
+                "model": model,
+                "max_tokens": config.max_tokens,
+                "system": system_prompt or "",
+                "messages": api_messages,
+            }
 
-            content = response.content[0].text if response.content else ""
+            # Add tools if provided (Anthropic native format)
+            if tools:
+                request_params["tools"] = tools
+
+            response = await self.client.messages.create(**request_params)
+
+            # Extract content - may be text or tool_use blocks
+            content = ""
+            tool_calls = []
+
+            for block in response.content:
+                if block.type == "text":
+                    content += block.text
+                elif block.type == "tool_use":
+                    tool_calls.append({
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    })
+
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
             cost = self._calculate_cost(model, input_tokens, output_tokens)
 
-            logger.debug(f"Claude response ({output_tokens} tokens): {content[:200]}...")
+            logger.debug(f"Claude response ({output_tokens} tokens): {content[:200] if content else '[tool calls]'}...")
+            if tool_calls:
+                logger.debug(f"Claude tool calls: {[tc['name'] for tc in tool_calls]}")
             logger.debug(f"Claude usage: {input_tokens} in, {output_tokens} out, ${cost:.4f}")
 
             return LLMResponse(
@@ -80,6 +105,7 @@ class ClaudeProvider(LLMProvider):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost,
+                tool_calls=tool_calls if tool_calls else None,
             )
 
         except RateLimitError as e:

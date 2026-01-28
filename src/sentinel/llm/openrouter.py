@@ -41,6 +41,7 @@ class OpenRouterProvider(LLMProvider):
         messages: list[dict[str, str]],
         config: LLMConfig,
         task=None,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         """Generate completion via OpenRouter."""
         model = config.model or self.default_model
@@ -53,8 +54,14 @@ class OpenRouterProvider(LLMProvider):
             "temperature": config.temperature,
         }
 
+        # Add tools if provided (OpenAI function calling format)
+        if tools:
+            payload["tools"] = tools
+
         # Log request details in debug mode
         logger.debug(f"OpenRouter request: model={model}, max_tokens={config.max_tokens}")
+        if tools:
+            logger.debug(f"OpenRouter tools: {len(tools)} available")
         for msg in messages:
             preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
             logger.debug(f"OpenRouter [{msg['role']}]: {preview}")
@@ -64,13 +71,28 @@ class OpenRouterProvider(LLMProvider):
             response.raise_for_status()
             data = response.json()
 
-            content = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
+            content = message.get("content") or ""
             usage = data.get("usage", {})
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
             cost = self._calculate_cost(model, input_tokens, output_tokens)
 
-            logger.debug(f"OpenRouter response ({output_tokens} tokens): {content[:200]}...")
+            # Extract tool calls if present (OpenAI format)
+            tool_calls = None
+            if "tool_calls" in message and message["tool_calls"]:
+                tool_calls = []
+                for tc in message["tool_calls"]:
+                    import json
+                    tool_calls.append({
+                        "id": tc["id"],
+                        "name": tc["function"]["name"],
+                        "input": json.loads(tc["function"]["arguments"]),
+                    })
+
+            logger.debug(f"OpenRouter response ({output_tokens} tokens): {content[:200] if content else '[tool calls]'}...")
+            if tool_calls:
+                logger.debug(f"OpenRouter tool calls: {[tc['name'] for tc in tool_calls]}")
             logger.debug(f"OpenRouter usage: {input_tokens}→{output_tokens} tok, ${cost:.4f}")
 
             return LLMResponse(
@@ -80,6 +102,7 @@ class OpenRouterProvider(LLMProvider):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost,
+                tool_calls=tool_calls,
                 metadata={"openrouter_id": data.get("id")},
             )
 

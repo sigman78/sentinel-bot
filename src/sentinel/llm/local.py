@@ -34,6 +34,7 @@ class LocalProvider(LLMProvider):
         messages: list[dict[str, str]],
         config: LLMConfig,
         task=None,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         """Generate completion via local OpenAI-compatible API."""
         model = config.model or self.default_model
@@ -46,8 +47,14 @@ class LocalProvider(LLMProvider):
             "stream": False,
         }
 
+        # Add tools if provided (OpenAI function calling format)
+        if tools:
+            payload["tools"] = tools
+
         # Log request details in debug mode
         logger.debug(f"Local request: model={model}, url={self.base_url}")
+        if tools:
+            logger.debug(f"Local tools: {len(tools)} available")
         for msg in messages:
             preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
             logger.debug(f"Local [{msg['role']}]: {preview}")
@@ -57,12 +64,27 @@ class LocalProvider(LLMProvider):
             response.raise_for_status()
             data = response.json()
 
-            content = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
+            content = message.get("content") or ""
             usage = data.get("usage", {})
             input_tokens = usage.get("prompt_tokens", 0)
             output_tokens = usage.get("completion_tokens", 0)
 
-            logger.debug(f"Local response ({output_tokens} tokens): {content[:200]}...")
+            # Extract tool calls if present (OpenAI format)
+            tool_calls = None
+            if "tool_calls" in message and message["tool_calls"]:
+                tool_calls = []
+                for tc in message["tool_calls"]:
+                    import json
+                    tool_calls.append({
+                        "id": tc["id"],
+                        "name": tc["function"]["name"],
+                        "input": json.loads(tc["function"]["arguments"]),
+                    })
+
+            logger.debug(f"Local response ({output_tokens} tokens): {content[:200] if content else '[tool calls]'}...")
+            if tool_calls:
+                logger.debug(f"Local tool calls: {[tc['name'] for tc in tool_calls]}")
             logger.debug(f"Local usage: {input_tokens} in, {output_tokens} out")
 
             return LLMResponse(
@@ -72,6 +94,7 @@ class LocalProvider(LLMProvider):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=0.0,
+                tool_calls=tool_calls,
             )
 
         except httpx.ConnectError as e:
