@@ -48,6 +48,7 @@ class TelegramInterface(Interface):
         self._code_agent: CodeAgent | None = None
         self._task_manager: TaskManager | None = None
         self._orchestrator = get_orchestrator()
+        self._last_message_time: datetime | None = None
 
     async def _init_components(self) -> None:
         """Initialize agent and memory store."""
@@ -175,6 +176,20 @@ class TelegramInterface(Interface):
 
     def _is_owner(self, user_id: int) -> bool:
         return user_id == self.owner_id
+
+    def _should_quote_reply(self, message_time: datetime) -> bool:
+        """Determine if we should quote-reply based on message timing.
+
+        Only quote-replies when:
+        - Replying to older messages (5+ minutes gap from last message)
+        - This helps maintain context for out-of-order or delayed responses
+        """
+        if self._last_message_time is None:
+            return False
+
+        time_gap = (message_time - self._last_message_time).total_seconds()
+        # Quote-reply if 5+ minutes since last message (returning to earlier context)
+        return time_gap >= 300
 
     async def _run_sleep_cycle(self) -> None:
         """Run sleep agent consolidation if system is idle."""
@@ -622,9 +637,10 @@ Agenda Path: `{self.agent._agenda_path}`
         # Log incoming message
         logger.debug(f"USER: {update.message.text}")
 
+        message_time = datetime.now()
         message = Message(
             id=str(update.message.message_id),
-            timestamp=datetime.now(),
+            timestamp=message_time,
             role="user",
             content=update.message.text,
             content_type=ContentType.TEXT,
@@ -641,12 +657,18 @@ Agenda Path: `{self.agent._agenda_path}`
             else:
                 logger.debug(f"BOT: {response.content}")
 
+            # Only quote-reply if message is from earlier context (5+ min gap)
+            reply_to = update.message.message_id if self._should_quote_reply(message_time) else None
+
             await self._safe_reply(
                 update.effective_chat.id,
                 response.content,
                 is_markdown=True,
-                reply_to=update.message.message_id,
+                reply_to=reply_to,
             )
+
+            # Update last message time after successful response
+            self._last_message_time = message_time
 
             cost = response.metadata.get("cost_usd", 0)
             if cost > 0.01:

@@ -1,5 +1,7 @@
 """Tests for Telegram interface."""
 
+from datetime import datetime, timedelta
+
 from sentinel.interfaces.telegram import TelegramInterface
 
 
@@ -39,3 +41,34 @@ def test_split_message_at_space():
     assert len(chunks) == 2
     # Should split at word boundary
     assert not chunks[0].endswith("wor")
+
+
+def test_should_quote_reply_first_message():
+    """First message should not quote-reply."""
+    interface = TelegramInterface.__new__(TelegramInterface)
+    interface._last_message_time = None
+    assert not interface._should_quote_reply(datetime.now())
+
+
+def test_should_quote_reply_recent_message():
+    """Recent messages (< 5 min) should not quote-reply."""
+    interface = TelegramInterface.__new__(TelegramInterface)
+    now = datetime.now()
+    interface._last_message_time = now - timedelta(minutes=2)
+    assert not interface._should_quote_reply(now)
+
+
+def test_should_quote_reply_old_message():
+    """Old messages (5+ min) should quote-reply."""
+    interface = TelegramInterface.__new__(TelegramInterface)
+    now = datetime.now()
+    interface._last_message_time = now - timedelta(minutes=6)
+    assert interface._should_quote_reply(now)
+
+
+def test_should_quote_reply_boundary():
+    """5 minute boundary should trigger quote-reply."""
+    interface = TelegramInterface.__new__(TelegramInterface)
+    now = datetime.now()
+    interface._last_message_time = now - timedelta(seconds=300)
+    assert interface._should_quote_reply(now)
