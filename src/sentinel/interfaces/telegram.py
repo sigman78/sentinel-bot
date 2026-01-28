@@ -13,6 +13,7 @@ from telegram.ext import (
 )
 
 from sentinel.agents.awareness import AwarenessAgent
+from sentinel.agents.code import CodeAgent
 from sentinel.agents.dialog import DialogAgent
 from sentinel.agents.sleep import SleepAgent
 from sentinel.core.config import get_settings
@@ -39,6 +40,7 @@ class TelegramInterface(Interface):
         self._router = None
         self._sleep_agent: SleepAgent | None = None
         self._awareness_agent: AwarenessAgent | None = None
+        self._code_agent: CodeAgent | None = None
         self._orchestrator = get_orchestrator()
 
     async def _init_components(self) -> None:
@@ -63,6 +65,8 @@ class TelegramInterface(Interface):
             memory=self.memory,
             notify_callback=self._send_notification,
         )
+        self._code_agent = CodeAgent(llm=llm, memory=self.memory)
+        await self._code_agent.initialize()
 
         # Schedule background tasks
         self._orchestrator.schedule_task(
@@ -101,6 +105,7 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("status", self._handle_status))
         self.app.add_handler(CommandHandler("clear", self._handle_clear))
         self.app.add_handler(CommandHandler("agenda", self._handle_agenda))
+        self.app.add_handler(CommandHandler("code", self._handle_code))
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
         )
@@ -252,6 +257,7 @@ class TelegramInterface(Interface):
 /status - Show agent status
 /clear - Clear conversation history
 /agenda - Show current agenda
+/code <task> - Generate and execute Python code
 /help - This message
 
 Just send a message to chat with me."""
@@ -303,6 +309,60 @@ Conversation: {conv_len} messages"""
             await self._safe_reply(update.effective_chat.id, agenda)
         else:
             await update.message.reply_text("No agenda set.")
+
+    async def _handle_code(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /code command - generate and execute Python code."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self._code_agent:
+            await update.message.reply_text("Code agent not initialized. Please restart.")
+            return
+
+        # Extract task from command arguments
+        if not context.args:
+            await update.message.reply_text(
+                "Usage: /code <task description>\n"
+                "Example: /code Calculate the first 20 Fibonacci numbers"
+            )
+            return
+
+        task = " ".join(context.args)
+
+        # Mark activity for background task scheduling
+        self._orchestrator.mark_activity()
+
+        try:
+            await update.message.chat.send_action("typing")
+
+            logger.info(f"CODE REQUEST: {task}")
+
+            # Create message for code agent
+            message = Message(
+                id=str(update.message.message_id),
+                timestamp=datetime.now(),
+                role="user",
+                content=task,
+                content_type=ContentType.TEXT,
+                metadata={"telegram_user_id": update.effective_user.id},
+            )
+
+            # Execute code task
+            response = await self._code_agent.process(message)
+
+            logger.info(f"CODE COMPLETE: {response.content[:100]}")
+
+            # Send response
+            await self._safe_reply(
+                update.effective_chat.id,
+                response.content,
+                is_markdown=False,
+                reply_to=update.message.message_id,
+            )
+
+        except Exception as e:
+            logger.error(f"Error executing code: {e}", exc_info=True)
+            await update.message.reply_text(f"Error: {str(e)[:200]}")
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""

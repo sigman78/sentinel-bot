@@ -5,6 +5,10 @@ LLM provider interface.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sentinel.llm.router import TaskType
 
 
 class ProviderType(Enum):
@@ -46,6 +50,7 @@ class LLMProvider(ABC):
         self,
         messages: list[dict[str, str]],
         config: LLMConfig,
+        task: "TaskType | None" = None,
     ) -> LLMResponse:
         """Generate completion from messages."""
         ...

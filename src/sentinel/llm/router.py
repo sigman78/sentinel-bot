@@ -79,7 +79,7 @@ class LLMRouter:
         Returns:
             LLMResponse with content and metadata
         """
-        from sentinel.llm.registry import get_models_by_difficulty, rank_models_by_cost
+        from sentinel.llm.registry import MODEL_REGISTRY, get_models_by_difficulty, rank_models_by_cost
 
         # 1. Determine difficulty level from task
         difficulty = TASK_DIFFICULTY.get(task, 2) if task else 2
@@ -109,9 +109,16 @@ class LLMRouter:
                 return await self.complete(
                     messages, config, preferred=None, task=TaskType.SIMPLE
                 )
-            raise RuntimeError(
-                f"No providers available for difficulty {difficulty}"
+
+            # If even easy models are unavailable, use cheapest available model
+            fallback = [m for m in MODEL_REGISTRY.values() if m.provider in self._providers]
+            if not fallback:
+                raise RuntimeError("No providers registered")
+
+            logger.warning(
+                "No models available for difficulty 1; falling back to cheapest available"
             )
+            available = rank_models_by_cost(fallback)
 
         # 5. Honor preferred provider if specified
         if preferred:

@@ -219,7 +219,7 @@ class SQLiteMemoryStore(MemoryStore):
         """Get specific memory by ID."""
         # Check episodes
         async with self.conn.execute(
-            "SELECT id, timestamp, summary, importance FROM episodes WHERE id = ?",
+            "SELECT id, timestamp, summary, importance, tags, metadata FROM episodes WHERE id = ?",
             (memory_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -230,6 +230,8 @@ class SQLiteMemoryStore(MemoryStore):
                     content=row[2],
                     timestamp=datetime.fromisoformat(row[1]),
                     importance=row[3],
+                    tags=json.loads(row[4]) if row[4] else None,
+                    metadata=json.loads(row[5]) if row[5] else None,
                 )
 
         # Check facts
@@ -277,7 +279,7 @@ class SQLiteMemoryStore(MemoryStore):
         """Get most recent memories (fallback when search returns empty)."""
         results = []
         async with self.conn.execute(
-            "SELECT id, timestamp, summary, importance FROM episodes "
+            "SELECT id, timestamp, summary, importance, tags, metadata FROM episodes "
             "ORDER BY timestamp DESC LIMIT ?",
             (limit,),
         ) as cursor:
@@ -289,6 +291,8 @@ class SQLiteMemoryStore(MemoryStore):
                         content=row[2],
                         timestamp=datetime.fromisoformat(row[1]) if row[1] else datetime.now(),
                         importance=row[3],
+                        tags=json.loads(row[4]) if row[4] else None,
+                        metadata=json.loads(row[5]) if row[5] else None,
                     )
                 )
         return results

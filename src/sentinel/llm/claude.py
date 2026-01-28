@@ -35,6 +35,7 @@ class ClaudeProvider(LLMProvider):
         self,
         messages: list[dict[str, str]],
         config: LLMConfig,
+        task=None,
     ) -> LLMResponse:
         """Generate completion using Claude API."""
         model = config.model or self.default_model

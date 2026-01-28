@@ -40,6 +40,7 @@ class OpenRouterProvider(LLMProvider):
         self,
         messages: list[dict[str, str]],
         config: LLMConfig,
+        task=None,
     ) -> LLMResponse:
         """Generate completion via OpenRouter."""
         model = config.model or self.default_model

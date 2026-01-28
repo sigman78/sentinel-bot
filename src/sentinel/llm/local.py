@@ -33,6 +33,7 @@ class LocalProvider(LLMProvider):
         self,
         messages: list[dict[str, str]],
         config: LLMConfig,
+        task=None,
     ) -> LLMResponse:
         """Generate completion via local OpenAI-compatible API."""
         model = config.model or self.default_model
