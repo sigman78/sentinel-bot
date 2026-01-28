@@ -25,6 +25,7 @@ from sentinel.llm.router import create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tasks.manager import TaskManager
 from sentinel.tools.builtin import register_all_builtin_tools
+from sentinel.tools.builtin.agenda import set_data_dir
 from sentinel.tools.builtin.tasks import set_task_manager
 from sentinel.tools.registry import get_global_registry
 
@@ -67,6 +68,7 @@ class TelegramInterface(Interface):
         # Register builtin tools
         register_all_builtin_tools()
         set_task_manager(self._task_manager)
+        set_data_dir(settings.data_dir)
 
         # Get tool registry for DialogAgent
         tool_registry = get_global_registry()
