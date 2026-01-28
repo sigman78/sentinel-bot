@@ -204,20 +204,45 @@ class DialogAgent(BaseAgent):
 
                 # Format results for LLM
                 results_text = self._tool_executor.format_results_for_llm(results)
+                logger.debug(f"Tool results: {results_text[:200]}")
 
-                # Add tool execution results as system message
+                # Add assistant's tool call response and results to conversation
                 llm_messages.append(
                     {"role": "assistant", "content": response.content}
                 )
+
+                # Add tool results as user message with clear instruction
+                instruction = (
+                    f"The tools returned these results:\n\n{results_text}\n\n"
+                    "Please provide a natural, conversational response to my original question "
+                    "based on these results."
+                )
                 llm_messages.append(
-                    {"role": "system", "content": results_text}
+                    {"role": "user", "content": instruction}
                 )
 
                 # Get final natural language response from LLM
                 final_response = await self.llm.complete(
                     llm_messages, llm_config, task=TaskType.CHAT
                 )
-                logger.debug(f"DialogAgent final response: {len(final_response.content)} chars")
+                logger.debug(f"DialogAgent final response: '{final_response.content[:100]}'")
+
+                # Handle empty response
+                if not final_response.content or not final_response.content.strip():
+                    logger.warning("Empty final response from LLM, formatting results directly")
+                    # Extract key info from results and format nicely
+                    if results and results[0].success and results[0].data:
+                        data = results[0].data
+                        # For get_current_time, format nicely
+                        if "datetime" in data:
+                            final_response.content = (
+                                f"It's currently {data.get('time', '')} on "
+                                f"{data.get('weekday', '')}, {data.get('date', '')}."
+                            )
+                        else:
+                            final_response.content = f"Tool executed successfully: {data}"
+                    else:
+                        final_response.content = results_text
 
                 # Use final response
                 response_msg = Message(
