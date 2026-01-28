@@ -11,6 +11,9 @@ from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
+from sentinel.tools.executor import ToolExecutor
+from sentinel.tools.parser import ToolParser
+from sentinel.tools.registry import ToolRegistry
 
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
 - Key topics discussed
@@ -46,6 +49,8 @@ User: {user_name}
 
 ## Recent Memories
 {memories}
+
+{tools}
 """
 
 
@@ -58,6 +63,7 @@ class DialogAgent(BaseAgent):
         memory: MemoryStore,
         identity_path: Path | None = None,
         agenda_path: Path | None = None,
+        tool_registry: ToolRegistry | None = None,
     ):
         config = AgentConfig(
             agent_type=AgentType.DIALOG,
@@ -74,6 +80,10 @@ class DialogAgent(BaseAgent):
         self._user_context = ""
         self._identity = FALLBACK_IDENTITY
         self._agenda = ""
+
+        # Tool calling support
+        self._tool_registry = tool_registry
+        self._tool_executor = ToolExecutor(tool_registry) if tool_registry else None
 
     async def initialize(self) -> None:
         """Load identity, agenda, and user profile."""
@@ -159,13 +169,18 @@ class DialogAgent(BaseAgent):
         memory_text = self._format_memories(memories)
         logger.debug(f"DialogAgent memories: {len(memories)} retrieved")
 
-        # Build system prompt with identity, agenda, and context
+        # Build system prompt with identity, agenda, context, and tools
+        tools_context = ""
+        if self._tool_registry:
+            tools_context = self._tool_registry.get_context_string()
+
         system_prompt = self.config.system_prompt.format(
             identity=self._identity,
             user_name=self._user_name,
             user_context=self._user_context or "(No additional context)",
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
+            tools=tools_context,
         )
         logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")
 
@@ -178,18 +193,75 @@ class DialogAgent(BaseAgent):
         response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT)
         logger.debug(f"DialogAgent response: {len(response.content)} chars")
 
-        response_msg = Message(
-            id=str(uuid4()),
-            timestamp=datetime.now(),
-            role="assistant",
-            content=response.content,
-            content_type=ContentType.TEXT,
-            metadata={
-                "model": response.model,
-                "tokens": response.input_tokens + response.output_tokens,
-                "cost_usd": response.cost_usd,
-            },
-        )
+        # Check for tool calls in response
+        if self._tool_executor:
+            tool_calls = ToolParser.extract_calls(response.content)
+            if tool_calls:
+                logger.info(f"Detected {len(tool_calls)} tool call(s)")
+
+                # Execute tools
+                results = await self._tool_executor.execute_all(tool_calls)
+
+                # Format results for LLM
+                results_text = self._tool_executor.format_results_for_llm(results)
+
+                # Add tool execution results as system message
+                llm_messages.append(
+                    {"role": "assistant", "content": response.content}
+                )
+                llm_messages.append(
+                    {"role": "system", "content": results_text}
+                )
+
+                # Get final natural language response from LLM
+                final_response = await self.llm.complete(
+                    llm_messages, llm_config, task=TaskType.CHAT
+                )
+                logger.debug(f"DialogAgent final response: {len(final_response.content)} chars")
+
+                # Use final response
+                response_msg = Message(
+                    id=str(uuid4()),
+                    timestamp=datetime.now(),
+                    role="assistant",
+                    content=final_response.content,
+                    content_type=ContentType.TEXT,
+                    metadata={
+                        "model": final_response.model,
+                        "tokens": final_response.input_tokens + final_response.output_tokens,
+                        "cost_usd": final_response.cost_usd,
+                        "tool_calls": len(tool_calls),
+                        "tool_results": [r.success for r in results],
+                    },
+                )
+            else:
+                # No tool calls, use original response
+                response_msg = Message(
+                    id=str(uuid4()),
+                    timestamp=datetime.now(),
+                    role="assistant",
+                    content=response.content,
+                    content_type=ContentType.TEXT,
+                    metadata={
+                        "model": response.model,
+                        "tokens": response.input_tokens + response.output_tokens,
+                        "cost_usd": response.cost_usd,
+                    },
+                )
+        else:
+            # No tool support, use original response
+            response_msg = Message(
+                id=str(uuid4()),
+                timestamp=datetime.now(),
+                role="assistant",
+                content=response.content,
+                content_type=ContentType.TEXT,
+                metadata={
+                    "model": response.model,
+                    "tokens": response.input_tokens + response.output_tokens,
+                    "cost_usd": response.cost_usd,
+                },
+            )
 
         self.context.conversation.append(response_msg)
         await self._persist_exchange(message, response_msg)

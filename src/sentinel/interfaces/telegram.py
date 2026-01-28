@@ -24,6 +24,9 @@ from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
 from sentinel.llm.router import create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tasks.manager import TaskManager
+from sentinel.tools.builtin import register_all_builtin_tools
+from sentinel.tools.builtin.tasks import set_task_manager
+from sentinel.tools.registry import get_global_registry
 
 logger = get_logger("interfaces.telegram")
 
@@ -56,8 +59,20 @@ class TelegramInterface(Interface):
         if not self._router.available_providers:
             raise RuntimeError("No LLM providers available")
 
+        # Initialize task manager first (needed by tools)
+        self._task_manager = TaskManager(
+            memory=self.memory, notification_callback=self._send_notification
+        )
+
+        # Register builtin tools
+        register_all_builtin_tools()
+        set_task_manager(self._task_manager)
+
+        # Get tool registry for DialogAgent
+        tool_registry = get_global_registry()
+
         llm = list(self._router._providers.values())[0]
-        self.agent = DialogAgent(llm=llm, memory=self.memory)
+        self.agent = DialogAgent(llm=llm, memory=self.memory, tool_registry=tool_registry)
         await self.agent.initialize()
 
         # Initialize background agents
@@ -69,11 +84,6 @@ class TelegramInterface(Interface):
         )
         self._code_agent = CodeAgent(llm=llm, memory=self.memory)
         await self._code_agent.initialize()
-
-        # Initialize task manager
-        self._task_manager = TaskManager(
-            memory=self.memory, notification_callback=self._send_notification
-        )
 
         # Schedule background tasks
         self._orchestrator.schedule_task(
