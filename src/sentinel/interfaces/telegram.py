@@ -23,6 +23,7 @@ from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
 from sentinel.llm.router import create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
+from sentinel.tasks.manager import TaskManager
 
 logger = get_logger("interfaces.telegram")
 
@@ -41,6 +42,7 @@ class TelegramInterface(Interface):
         self._sleep_agent: SleepAgent | None = None
         self._awareness_agent: AwarenessAgent | None = None
         self._code_agent: CodeAgent | None = None
+        self._task_manager: TaskManager | None = None
         self._orchestrator = get_orchestrator()
 
     async def _init_components(self) -> None:
@@ -67,6 +69,11 @@ class TelegramInterface(Interface):
         )
         self._code_agent = CodeAgent(llm=llm, memory=self.memory)
         await self._code_agent.initialize()
+
+        # Initialize task manager
+        self._task_manager = TaskManager(
+            memory=self.memory, notification_callback=self._send_notification
+        )
 
         # Schedule background tasks
         self._orchestrator.schedule_task(
@@ -106,6 +113,10 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("clear", self._handle_clear))
         self.app.add_handler(CommandHandler("agenda", self._handle_agenda))
         self.app.add_handler(CommandHandler("code", self._handle_code))
+        self.app.add_handler(CommandHandler("remind", self._handle_remind))
+        self.app.add_handler(CommandHandler("schedule", self._handle_schedule))
+        self.app.add_handler(CommandHandler("tasks", self._handle_tasks))
+        self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
         )
@@ -158,9 +169,16 @@ class TelegramInterface(Interface):
                 logger.info(f"Sleep cycle: {result}")
 
     async def _run_awareness_check(self) -> None:
-        """Run awareness agent checks."""
+        """Run awareness agent checks and task execution."""
+        # Check awareness agent reminders/monitors
         if self._awareness_agent:
             await self._awareness_agent.check_all()
+
+        # Check and execute due tasks
+        if self._task_manager:
+            results = await self._task_manager.check_and_execute_due_tasks()
+            if results:
+                logger.debug(f"Executed {len(results)} tasks")
 
     async def _send_notification(self, message: str) -> None:
         """Send proactive notification to owner."""
@@ -258,6 +276,10 @@ class TelegramInterface(Interface):
 /clear - Clear conversation history
 /agenda - Show current agenda
 /code <task> - Generate and execute Python code
+/remind <time> <message> - Set one-time reminder (e.g., /remind 5m call mom)
+/schedule <pattern> <task> - Schedule recurring task (e.g., /schedule daily 9am check news)
+/tasks - List active scheduled tasks
+/cancel <task_id> - Cancel a task
 /help - This message
 
 Just send a message to chat with me."""
@@ -363,6 +385,140 @@ Conversation: {conv_len} messages"""
         except Exception as e:
             logger.error(f"Error executing code: {e}", exc_info=True)
             await update.message.reply_text(f"Error: {str(e)[:200]}")
+
+    async def _handle_remind(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /remind command - set one-time reminder."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self._task_manager:
+            await update.message.reply_text("Task manager not initialized.")
+            return
+
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                "Usage: /remind <time> <message>\n"
+                "Examples:\n"
+                "  /remind 5m call mom\n"
+                "  /remind 2h check oven\n"
+                "  /remind 1d submit report"
+            )
+            return
+
+        delay = context.args[0]
+        message = " ".join(context.args[1:])
+
+        result = await self._task_manager.add_reminder(delay, message)
+
+        if result.success:
+            trigger_at = result.data.get("trigger_at", "")
+            await update.message.reply_text(
+                f"Reminder set: {message}\nWill trigger at {trigger_at[:16]}"
+            )
+        else:
+            await update.message.reply_text(f"Error: {result.error}")
+
+    async def _handle_schedule(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle /schedule command - schedule recurring reminder."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self._task_manager:
+            await update.message.reply_text("Task manager not initialized.")
+            return
+
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                "Usage: /schedule <pattern> <task>\n"
+                "Examples:\n"
+                "  /schedule daily 9am check news\n"
+                "  /schedule weekdays 6pm workout reminder\n"
+                "  /schedule monday 10am weekly review"
+            )
+            return
+
+        # Parse schedule pattern - could be "daily 9am" or "weekdays 6pm" etc
+        # We need to find where the pattern ends and task description begins
+        # For simplicity, assume pattern is first 1-2 args
+        if len(context.args) >= 3 and context.args[1].replace(":", "").replace("am", "").replace("pm", "").replace(".", "").isdigit():
+            # Pattern is 2 words: "daily 9am"
+            schedule = f"{context.args[0]} {context.args[1]}"
+            description = " ".join(context.args[2:])
+        else:
+            # Pattern is 1 word: this shouldn't happen with valid input
+            await update.message.reply_text(
+                "Invalid format. Use: /schedule <pattern> <time> <task>\n"
+                "Example: /schedule daily 9am check news"
+            )
+            return
+
+        from sentinel.tasks.types import TaskType
+
+        result = await self._task_manager.add_recurring_task(
+            schedule=schedule,
+            task_type=TaskType.REMINDER,
+            description=description,
+        )
+
+        if result.success:
+            task_id = result.data.get("task_id", "")
+            next_run = result.data.get("next_run", "")
+            await update.message.reply_text(
+                f"Scheduled task {task_id}: {description}\n"
+                f"Next run: {next_run[:16]}"
+            )
+        else:
+            await update.message.reply_text(f"Error: {result.error}")
+
+    async def _handle_tasks(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /tasks command - list active tasks."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self._task_manager:
+            await update.message.reply_text("Task manager not initialized.")
+            return
+
+        tasks = await self._task_manager.list_tasks()
+
+        if not tasks:
+            await update.message.reply_text("No active tasks.")
+            return
+
+        lines = ["*Active Tasks*\n"]
+        for task in tasks:
+            task_type = task["schedule_type"]
+            lines.append(
+                f"`{task['id']}` [{task_type}] {task['description']}\n"
+                f"  Next: {task['next_run'][:16]}\n"
+            )
+
+        await self._safe_reply(update.effective_chat.id, "\n".join(lines))
+
+    async def _handle_cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /cancel command - cancel a task."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self._task_manager:
+            await update.message.reply_text("Task manager not initialized.")
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "Usage: /cancel <task_id>\n" "Use /tasks to see task IDs."
+            )
+            return
+
+        task_id = context.args[0]
+        result = await self._task_manager.cancel_task(task_id)
+
+        if result.success:
+            await update.message.reply_text(f"Cancelled task {task_id}")
+        else:
+            await update.message.reply_text(f"Error: {result.error}")
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""

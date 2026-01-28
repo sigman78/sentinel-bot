@@ -58,6 +58,23 @@ END;
 CREATE TRIGGER IF NOT EXISTS facts_ai AFTER INSERT ON facts BEGIN
     INSERT INTO memory_fts(id, content, memory_type) VALUES (new.id, new.content, 'semantic');
 END;
+
+-- Scheduled tasks
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+    id TEXT PRIMARY KEY,
+    task_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    schedule_type TEXT NOT NULL,
+    schedule_data TEXT NOT NULL,
+    execution_data TEXT,
+    enabled INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_run DATETIME,
+    next_run DATETIME NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_next_run
+    ON scheduled_tasks(next_run) WHERE enabled = 1;
 """
 
 
@@ -296,3 +313,138 @@ class SQLiteMemoryStore(MemoryStore):
                     )
                 )
         return results
+
+    # Task management operations
+
+    async def create_task(
+        self,
+        task_id: str,
+        task_type: str,
+        description: str,
+        schedule_type: str,
+        schedule_data: dict,
+        execution_data: dict | None,
+        next_run: datetime,
+    ) -> None:
+        """Create a new scheduled task."""
+        await self.conn.execute(
+            """INSERT INTO scheduled_tasks
+               (id, task_type, description, schedule_type, schedule_data,
+                execution_data, enabled, created_at, next_run)
+               VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+            (
+                task_id,
+                task_type,
+                description,
+                schedule_type,
+                json.dumps(schedule_data),
+                json.dumps(execution_data) if execution_data else None,
+                datetime.now(),
+                next_run,
+            ),
+        )
+        await self.conn.commit()
+
+    async def get_task(self, task_id: str) -> dict | None:
+        """Get task by ID."""
+        async with self.conn.execute(
+            """SELECT id, task_type, description, schedule_type, schedule_data,
+                      execution_data, enabled, created_at, last_run, next_run
+               FROM scheduled_tasks WHERE id = ?""",
+            (task_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {
+                    "id": row[0],
+                    "task_type": row[1],
+                    "description": row[2],
+                    "schedule_type": row[3],
+                    "schedule_data": json.loads(row[4]),
+                    "execution_data": json.loads(row[5]) if row[5] else None,
+                    "enabled": bool(row[6]),
+                    "created_at": row[7],
+                    "last_run": row[8],
+                    "next_run": row[9],
+                }
+        return None
+
+    async def list_tasks(self, enabled_only: bool = True) -> list[dict]:
+        """List all tasks."""
+        query = "SELECT id, task_type, description, schedule_type, schedule_data, execution_data, enabled, created_at, last_run, next_run FROM scheduled_tasks"
+        if enabled_only:
+            query += " WHERE enabled = 1"
+        query += " ORDER BY next_run"
+
+        results = []
+        async with self.conn.execute(query) as cursor:
+            async for row in cursor:
+                results.append(
+                    {
+                        "id": row[0],
+                        "task_type": row[1],
+                        "description": row[2],
+                        "schedule_type": row[3],
+                        "schedule_data": json.loads(row[4]),
+                        "execution_data": json.loads(row[5]) if row[5] else None,
+                        "enabled": bool(row[6]),
+                        "created_at": row[7],
+                        "last_run": row[8],
+                        "next_run": row[9],
+                    }
+                )
+        return results
+
+    async def get_due_tasks(self, now: datetime) -> list[dict]:
+        """Get tasks that are due to run."""
+        async with self.conn.execute(
+            """SELECT id, task_type, description, schedule_type, schedule_data,
+                      execution_data, enabled, created_at, last_run, next_run
+               FROM scheduled_tasks
+               WHERE enabled = 1 AND next_run <= ?
+               ORDER BY next_run""",
+            (now,),
+        ) as cursor:
+            results = []
+            async for row in cursor:
+                results.append(
+                    {
+                        "id": row[0],
+                        "task_type": row[1],
+                        "description": row[2],
+                        "schedule_type": row[3],
+                        "schedule_data": json.loads(row[4]),
+                        "execution_data": json.loads(row[5]) if row[5] else None,
+                        "enabled": bool(row[6]),
+                        "created_at": row[7],
+                        "last_run": row[8],
+                        "next_run": row[9],
+                    }
+                )
+        return results
+
+    async def update_task(self, task_id: str, **fields: Any) -> bool:
+        """Update task fields."""
+        allowed_fields = ["enabled", "last_run", "next_run", "description"]
+        updates = []
+        values = []
+
+        for key, value in fields.items():
+            if key in allowed_fields:
+                updates.append(f"{key} = ?")
+                values.append(value)
+
+        if not updates:
+            return False
+
+        values.append(task_id)
+        sql = f"UPDATE scheduled_tasks SET {', '.join(updates)} WHERE id = ?"
+        await self.conn.execute(sql, values)
+        await self.conn.commit()
+        return True
+
+    async def delete_task(self, task_id: str) -> bool:
+        """Delete a task."""
+        await self.conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
+        await self.conn.commit()
+        return True
