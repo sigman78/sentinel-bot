@@ -1,6 +1,7 @@
 """SQLite memory store with FTS5 search and Letta-inspired core memory blocks."""
 
 import json
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,22 @@ from sentinel.core.logging import get_logger
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 
 logger = get_logger("memory.store")
+
+
+# Python 3.12+ fix: Register datetime adapters explicitly
+def _adapt_datetime(dt: datetime) -> str:
+    """Convert datetime to ISO format string for SQLite storage."""
+    return dt.isoformat()
+
+
+def _convert_datetime(val: bytes) -> datetime:
+    """Convert ISO format string from SQLite to datetime."""
+    return datetime.fromisoformat(val.decode())
+
+
+# Register adapters/converters to avoid Python 3.12 deprecation warning
+sqlite3.register_adapter(datetime, _adapt_datetime)
+sqlite3.register_converter("DATETIME", _convert_datetime)
 
 SCHEMA = """
 -- Core memory: agent-editable blocks (Letta concept)
@@ -88,7 +105,11 @@ class SQLiteMemoryStore(MemoryStore):
     async def connect(self) -> None:
         """Initialize database connection and schema."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = await aiosqlite.connect(self.db_path)
+        # Use detect_types to enable our custom datetime converters
+        self._conn = await aiosqlite.connect(
+            self.db_path,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+        )
         await self._conn.executescript(SCHEMA)
         await self._conn.commit()
         logger.info(f"Connected to memory store: {self.db_path}")
@@ -211,7 +232,7 @@ class SQLiteMemoryStore(MemoryStore):
                             id=row[0],
                             type=MemoryType.EPISODIC,
                             content=row[2],
-                            timestamp=datetime.fromisoformat(row[1]) if row[1] else datetime.now(),
+                            timestamp=row[1] if row[1] else datetime.now(),
                         )
                     )
 
@@ -226,7 +247,7 @@ class SQLiteMemoryStore(MemoryStore):
                             id=row[0],
                             type=MemoryType.SEMANTIC,
                             content=row[2],
-                            timestamp=datetime.fromisoformat(row[1]) if row[1] else datetime.now(),
+                            timestamp=row[1] if row[1] else datetime.now(),
                         )
                     )
 
@@ -245,7 +266,7 @@ class SQLiteMemoryStore(MemoryStore):
                     id=row[0],
                     type=MemoryType.EPISODIC,
                     content=row[2],
-                    timestamp=datetime.fromisoformat(row[1]),
+                    timestamp=row[1],
                     importance=row[3],
                     tags=json.loads(row[4]) if row[4] else None,
                     metadata=json.loads(row[5]) if row[5] else None,
@@ -262,7 +283,7 @@ class SQLiteMemoryStore(MemoryStore):
                     id=row[0],
                     type=MemoryType.SEMANTIC,
                     content=row[2],
-                    timestamp=datetime.fromisoformat(row[1]),
+                    timestamp=row[1],
                     importance=row[3],
                 )
 
@@ -306,7 +327,7 @@ class SQLiteMemoryStore(MemoryStore):
                         id=row[0],
                         type=MemoryType.EPISODIC,
                         content=row[2],
-                        timestamp=datetime.fromisoformat(row[1]) if row[1] else datetime.now(),
+                        timestamp=row[1] if row[1] else datetime.now(),
                         importance=row[3],
                         tags=json.loads(row[4]) if row[4] else None,
                         metadata=json.loads(row[5]) if row[5] else None,

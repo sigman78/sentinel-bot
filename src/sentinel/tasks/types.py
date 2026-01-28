@@ -47,6 +47,14 @@ class ScheduledTask:
     @classmethod
     def from_dict(cls, data: dict) -> "ScheduledTask":
         """Create from dict loaded from storage."""
+        # Helper to handle both datetime objects and ISO strings
+        def _to_datetime(val):
+            if val is None:
+                return None
+            if isinstance(val, datetime):
+                return val
+            return datetime.fromisoformat(val)
+
         return cls(
             id=data["id"],
             task_type=TaskType(data["task_type"]),
@@ -55,7 +63,7 @@ class ScheduledTask:
             schedule_data=data["schedule_data"],
             execution_data=data.get("execution_data"),
             enabled=bool(data["enabled"]),
-            created_at=datetime.fromisoformat(data["created_at"]),
-            last_run=datetime.fromisoformat(data["last_run"]) if data.get("last_run") else None,
-            next_run=datetime.fromisoformat(data["next_run"]),
+            created_at=_to_datetime(data["created_at"]),
+            last_run=_to_datetime(data.get("last_run")),
+            next_run=_to_datetime(data["next_run"]),
         )
