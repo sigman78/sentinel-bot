@@ -60,6 +60,32 @@ class Settings(BaseSettings):
         description="Downgrade model difficulty at this % of budget (0.0-1.0)",
     )
 
+    # Workspace settings
+    workspace_dir: Path = Field(
+        default=Path("data/workspace"),
+        description="Code execution workspace directory",
+    )
+    workspace_timeout: float = Field(
+        default=30.0,
+        description="Script execution timeout (seconds)",
+    )
+    workspace_max_script_size: int = Field(
+        default=100_000,
+        description="Maximum script size in bytes",
+    )
+    workspace_retention_days: int = Field(
+        default=30,
+        description="Days to retain old scripts",
+    )
+
+    @property
+    def workspace_scripts_dir(self) -> Path:
+        return self.workspace_dir / "scripts"
+
+    @property
+    def workspace_output_dir(self) -> Path:
+        return self.workspace_dir / "output"
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / self.db_name
