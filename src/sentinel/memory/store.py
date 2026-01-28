@@ -11,6 +11,7 @@ import aiosqlite
 
 from sentinel.core.logging import get_logger
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
+from sentinel.memory.profile import UserProfile
 
 logger = get_logger("memory.store")
 
@@ -518,3 +519,57 @@ class SQLiteMemoryStore(MemoryStore):
         await self.conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
         await self.conn.commit()
         return True
+
+    # User profile operations
+
+    async def get_profile(self) -> UserProfile | None:
+        """Get user profile from core memory.
+
+        Loads profile from 'user_profile' key. If not found, attempts to
+        migrate from legacy 'user_name' and 'user_context' keys.
+        """
+        # Try to load structured profile
+        profile_json = await self.get_core("user_profile")
+        if profile_json:
+            try:
+                data = json.loads(profile_json)
+                return UserProfile.from_dict(data)
+            except Exception as e:
+                logger.warning(f"Failed to parse user profile: {e}")
+
+        # Fallback: migrate from legacy keys
+        name = await self.get_core("user_name")
+        context = await self.get_core("user_context")
+
+        if name or context:
+            # Create profile from legacy data
+            profile = UserProfile(
+                name=name or "User",
+                context=context,
+            )
+            # Save as structured profile
+            await self.update_profile(profile)
+            logger.info("Migrated legacy user profile to structured format")
+            return profile
+
+        return None
+
+    async def update_profile(self, profile: UserProfile) -> None:
+        """Update user profile in core memory.
+
+        Stores profile as JSON in 'user_profile' key. Also maintains
+        backward compatibility by updating 'user_name' key.
+        """
+        # Update timestamp
+        profile.updated_at = datetime.now()
+
+        # Store as JSON
+        profile_json = json.dumps(profile.to_dict())
+        await self.set_core("user_profile", profile_json)
+
+        # Maintain backward compatibility
+        await self.set_core("user_name", profile.name)
+        if profile.context:
+            await self.set_core("user_context", profile.context)
+
+        logger.debug(f"Updated user profile: {profile.name}")

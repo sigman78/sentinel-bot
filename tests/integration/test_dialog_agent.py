@@ -118,7 +118,7 @@ async def test_dialog_agent_user_profile(memory_store, router):
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    # Set user profile before agent init
+    # Set user profile before agent init (uses legacy keys)
     await memory_store.set_core("user_name", "Alice")
     await memory_store.set_core("user_context", "Prefers brief responses")
 
@@ -126,8 +126,9 @@ async def test_dialog_agent_user_profile(memory_store, router):
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 
-    assert agent._user_name == "Alice"
-    assert "brief" in agent._user_context.lower()
+    # Check structured profile was loaded (migrated from legacy keys)
+    assert agent._user_profile.name == "Alice"
+    assert "brief" in agent._user_profile.context.lower()
 
     await router.close_all()
 

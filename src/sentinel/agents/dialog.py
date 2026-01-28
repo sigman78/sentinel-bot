@@ -11,6 +11,7 @@ from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.llm.base import LLMConfig, LLMProvider
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
+from sentinel.memory.profile import UserProfile
 from sentinel.tools.executor import ToolExecutor
 from sentinel.tools.parser import ToolCall
 from sentinel.tools.registry import ToolRegistry
@@ -76,8 +77,7 @@ class DialogAgent(BaseAgent):
         self._agenda_path = agenda_path or settings.agenda_path
 
         self._max_history = 20
-        self._user_name = "User"
-        self._user_context = ""
+        self._user_profile = UserProfile()  # Initialize with defaults
         self._identity = FALLBACK_IDENTITY
         self._agenda = ""
 
@@ -141,17 +141,20 @@ class DialogAgent(BaseAgent):
         self.save_agenda("\n".join(new_lines))
 
     async def _load_user_profile(self) -> None:
-        """Load user profile from core memory."""
-        if not hasattr(self.memory, "get_core"):
+        """Load user profile from memory store.
+
+        Uses structured profile if available, otherwise migrates from legacy keys.
+        """
+        if not hasattr(self.memory, "get_profile"):
             return
 
-        name = await self.memory.get_core("user_name")
-        if name:
-            self._user_name = name
-
-        context = await self.memory.get_core("user_context")
-        if context:
-            self._user_context = context
+        profile = await self.memory.get_profile()
+        if profile:
+            self._user_profile = profile
+            logger.debug(f"Loaded user profile: {profile.name}")
+        else:
+            # No profile yet - keep defaults
+            logger.debug("No user profile found, using defaults")
 
     async def process(self, message: Message) -> Message:
         """Process user message and generate response."""
@@ -172,8 +175,8 @@ class DialogAgent(BaseAgent):
         # Build system prompt (without tool descriptions - tools passed via API)
         system_prompt = self.config.system_prompt.format(
             identity=self._identity,
-            user_name=self._user_name,
-            user_context=self._user_context or "(No additional context)",
+            user_name=self._user_profile.name,
+            user_context=self._user_profile.to_prompt_context(),
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
             tools="",  # Empty - tools passed via native API
@@ -401,13 +404,34 @@ class DialogAgent(BaseAgent):
             self.context.conversation = self.context.conversation[-self._max_history:]
 
     async def update_user_profile(self, key: str, value: str) -> None:
-        """Update user profile in core memory."""
-        if hasattr(self.memory, "set_core"):
-            await self.memory.set_core(key, value)
-            if key == "user_name":
-                self._user_name = value
-            elif key == "user_context":
-                self._user_context = value
+        """Update user profile field.
+
+        Supports updating specific profile fields. For backward compatibility,
+        also accepts legacy keys (user_name, user_context).
+        """
+        if not hasattr(self.memory, "update_profile"):
+            # Fallback to legacy core memory
+            if hasattr(self.memory, "set_core"):
+                await self.memory.set_core(key, value)
+            return
+
+        # Update structured profile
+        if key == "user_name" or key == "name":
+            self._user_profile.name = value
+        elif key == "user_context" or key == "context":
+            self._user_profile.context = value
+        elif key == "timezone":
+            self._user_profile.timezone = value
+        elif key == "communication_style":
+            self._user_profile.communication_style = value
+        elif key == "environment":
+            self._user_profile.environment = value
+        else:
+            # Store as preference
+            self._user_profile.set_preference(key, value)
+
+        await self.memory.update_profile(self._user_profile)
+        logger.info(f"Updated user profile: {key}={value}")
 
     async def summarize_session(self) -> str | None:
         """Summarize and persist conversation, returns summary text."""

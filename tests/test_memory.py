@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from sentinel.memory.base import MemoryEntry, MemoryType
+from sentinel.memory.profile import UserProfile
 from sentinel.memory.store import SQLiteMemoryStore
 
 
@@ -294,3 +295,66 @@ async def test_retrieval_composite_ranking(memory_store: SQLiteMemoryStore):
     # Old but very important should still rank first
     assert len(results) >= 2
     assert results[0].id == "old-important", "Very important memory should outweigh recency"
+
+
+@pytest.mark.asyncio
+async def test_profile_storage_empty(memory_store: SQLiteMemoryStore):
+    """Test getting profile when none exists."""
+    profile = await memory_store.get_profile()
+    assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_profile_storage_basic(memory_store: SQLiteMemoryStore):
+    """Test storing and retrieving profile."""
+    original = UserProfile(
+        name="TestUser",
+        timezone="UTC-8",
+        interests=["Python", "AI"],
+        preferences={"theme": "dark"},
+    )
+
+    await memory_store.update_profile(original)
+
+    retrieved = await memory_store.get_profile()
+    assert retrieved is not None
+    assert retrieved.name == "TestUser"
+    assert retrieved.timezone == "UTC-8"
+    assert retrieved.interests == ["Python", "AI"]
+    assert retrieved.preferences["theme"] == "dark"
+
+
+@pytest.mark.asyncio
+async def test_profile_storage_update(memory_store: SQLiteMemoryStore):
+    """Test updating existing profile."""
+    profile = UserProfile(name="Alice")
+    await memory_store.update_profile(profile)
+
+    # Update profile
+    profile.add_interest("Machine Learning")
+    profile.set_preference("code_style", "functional")
+    await memory_store.update_profile(profile)
+
+    # Retrieve and verify
+    retrieved = await memory_store.get_profile()
+    assert retrieved is not None
+    assert "Machine Learning" in retrieved.interests
+    assert retrieved.get_preference("code_style") == "functional"
+
+
+@pytest.mark.asyncio
+async def test_profile_migration_from_legacy(memory_store: SQLiteMemoryStore):
+    """Test migrating from legacy user_name/user_context."""
+    # Set legacy keys
+    await memory_store.set_core("user_name", "LegacyUser")
+    await memory_store.set_core("user_context", "Prefers concise responses")
+
+    # Get profile should migrate
+    profile = await memory_store.get_profile()
+    assert profile is not None
+    assert profile.name == "LegacyUser"
+    assert profile.context == "Prefers concise responses"
+
+    # Verify structured profile was saved
+    profile_json = await memory_store.get_core("user_profile")
+    assert profile_json is not None

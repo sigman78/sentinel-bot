@@ -6,7 +6,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sentinel.memory.profile import UserProfile
 
 
 class MemoryType(Enum):
@@ -62,3 +65,12 @@ class MemoryStore(ABC):
     async def delete(self, memory_id: str) -> bool:
         """Delete memory."""
         ...
+
+    # User profile operations (optional - not all stores need profiles)
+    async def get_profile(self) -> "UserProfile | None":
+        """Get user profile. Returns None if not implemented."""
+        return None
+
+    async def update_profile(self, profile: "UserProfile") -> None:
+        """Update user profile. No-op if not implemented."""
+        pass
