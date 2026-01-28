@@ -1,5 +1,9 @@
 # Architecture
 
+High-level system design and component interactions.
+
+See also: [agents.md](agents.md), [memory.md](memory.md), [task_system.md](task_system.md), [tool_calling.md](tool_calling.md)
+
 ## Layer Overview
 
 | Layer | Components | Responsibility |

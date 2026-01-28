@@ -1,5 +1,9 @@
 # Memory System
 
+Persistent context and knowledge storage.
+
+See also: [architecture.md](architecture.md), [agents.md](agents.md)
+
 ## Hierarchy
 
 | Layer | Scope | Storage | Lifespan | Content |

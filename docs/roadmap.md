@@ -95,9 +95,8 @@ Exit criteria: Bot can write, execute Python scripts and read results safely. �
 - [x] Integration with AwarenessAgent for proactive checks
 - [x] Comprehensive integration test suite
 
-Documentation: [task_system_implementation.md](task_system_implementation.md), [task_system_testing.md](task_system_testing.md)
-
 Exit criteria: Users can schedule one-time and recurring tasks via natural language. ✅
+Documentation: [task_system.md](task_system.md)
 
 ## Phase 6.6: Tool Calling Framework (Complete)
 **Goal**: LLM-driven function execution via native APIs
@@ -111,9 +110,8 @@ Exit criteria: Users can schedule one-time and recurring tasks via natural langu
 - [x] Automatic tool result formatting for LLM
 - [x] Integration tests with live API calls
 
-Documentation: [tool_calling_design.md](tool_calling_design.md), [tool_calling_implementation.md](tool_calling_implementation.md)
-
 Exit criteria: Agent can call functions from natural language using native provider APIs. ✅
+Documentation: [tool_calling.md](tool_calling.md)
 
 ## Phase 7: Safety & Self-Modification
 **Goal**: Safe autonomous operation

@@ -1,5 +1,9 @@
 # Agents
 
+Agent types, lifecycle, and orchestration.
+
+See also: [architecture.md](architecture.md), [memory.md](memory.md), [tool_calling.md](tool_calling.md)
+
 ## Agent Types
 
 ### Core Agents
@@ -66,13 +70,6 @@ Executes predefined tools and scripts.
 | ACTIVE | Processing request | → READY, → SUSPENDED, → TERMINATED |
 | SUSPENDED | Idle but preserving state | → ACTIVE (reactivate), → TERMINATED |
 | TERMINATED | Resources released | (final) |
-
-States:
-- **INIT**: Loading context, memory retrieval
-- **READY**: Awaiting input
-- **ACTIVE**: Processing request
-- **SUSPENDED**: Idle but preserving state
-- **TERMINATED**: Resources released
 
 ## Orchestration Rules
 

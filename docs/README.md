@@ -6,16 +6,14 @@ Personal AI agents swarm - self-evolving assistant system.
 
 | Document | Description |
 |----------|-------------|
+| [roadmap](roadmap.md) | Development phases, milestones, current status |
 | [architecture](architecture.md) | System design, components, data flow |
 | [agents](agents.md) | Agent types, roles, orchestration |
 | [memory](memory.md) | Memory hierarchy, persistence, retrieval |
 | [interfaces](interfaces.md) | Human-AI communication channels |
+| [task_system](task_system.md) | Task scheduling and execution |
+| [tool_calling](tool_calling.md) | LLM-driven function execution |
 | [safety](safety.md) | Boundaries, sandboxing, self-modification rules |
-| [roadmap](roadmap.md) | Development phases, milestones |
-| [task_system_implementation](task_system_implementation.md) | Task scheduling design and implementation |
-| [task_system_testing](task_system_testing.md) | Task system test report |
-| [tool_calling_design](tool_calling_design.md) | Tool calling framework design |
-| [tool_calling_implementation](tool_calling_implementation.md) | Tool calling implementation details |
 
 ## Package Structure
 
