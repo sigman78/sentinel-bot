@@ -67,6 +67,7 @@ class LLMRouter:
         config: LLMConfig,
         preferred: ProviderType | None = None,
         task: TaskType | None = None,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         """Route completion to optimal provider based on task/cost.
 
@@ -107,7 +108,7 @@ class LLMRouter:
                     f"No models available for difficulty {difficulty}, trying easier"
                 )
                 return await self.complete(
-                    messages, config, preferred=None, task=TaskType.SIMPLE
+                    messages, config, preferred=None, task=TaskType.SIMPLE, tools=tools
                 )
 
             # If even easy models are unavailable, use cheapest available model
@@ -146,6 +147,8 @@ class LLMRouter:
                         temperature=config.temperature,
                         system_prompt=config.system_prompt,
                     ),
+                    task=task,
+                    tools=tools,
                 )
 
                 # Track cost
@@ -170,7 +173,7 @@ class LLMRouter:
         if difficulty > 1:
             logger.warning("All models failed, trying easier difficulty")
             return await self.complete(
-                messages, config, preferred=None, task=TaskType.SIMPLE
+                messages, config, preferred=None, task=TaskType.SIMPLE, tools=tools
             )
 
         raise RuntimeError(f"All providers failed. Last error: {last_error}")
