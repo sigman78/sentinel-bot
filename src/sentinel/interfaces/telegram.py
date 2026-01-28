@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
@@ -127,6 +127,7 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("schedule", self._handle_schedule))
         self.app.add_handler(CommandHandler("tasks", self._handle_tasks))
         self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
+        self.app.add_handler(CommandHandler("ctx", self._handle_ctx))
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
         )
@@ -134,6 +135,10 @@ class TelegramInterface(Interface):
         logger.info(f"Starting Telegram bot for owner {self.owner_id}")
         await self.app.initialize()
         await self.app.start()
+
+        # Set up bot command menu
+        await self._setup_bot_commands()
+
         await self.app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
     async def stop(self) -> None:
@@ -290,6 +295,7 @@ class TelegramInterface(Interface):
 /schedule <pattern> <task> - Schedule recurring task (e.g., /schedule daily 9am check news)
 /tasks - List active scheduled tasks
 /cancel <task_id> - Cancel a task
+/ctx - Show debug context
 /help - This message
 
 Just send a message to chat with me."""
@@ -529,6 +535,71 @@ Conversation: {conv_len} messages"""
             await update.message.reply_text(f"Cancelled task {task_id}")
         else:
             await update.message.reply_text(f"Error: {result.error}")
+
+    async def _handle_ctx(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /ctx command - show raw dialog context for debugging."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self.agent:
+            await update.message.reply_text("Agent not initialized.")
+            return
+
+        # Build context dump
+        conv_count = len(self.agent.context.conversation)
+        conv_dump = []
+
+        for i, msg in enumerate(self.agent.context.conversation[-10:], 1):  # Last 10 messages
+            metadata_str = f" (meta: {msg.metadata})" if msg.metadata else ""
+            conv_dump.append(
+                f"{i}. [{msg.role}] {msg.content[:100]}{'...' if len(msg.content) > 100 else ''}{metadata_str}"
+            )
+
+        context_info = f"""*Context Debug*
+
+Agent ID: `{self.agent.context.agent_id}`
+Agent Type: `{self.agent.context.agent_type.value}`
+Conversation Length: {conv_count} messages
+Showing: Last {min(10, conv_count)} messages
+
+*Recent Messages:*
+```
+{chr(10).join(conv_dump) if conv_dump else '(empty)'}
+```
+
+*Agent State:*
+State: `{self.agent.state.value}`
+Max History: {self.agent._max_history}
+User Name: {self.agent._user_name}
+
+*Memory Info:*
+Identity Path: `{self.agent._identity_path}`
+Agenda Path: `{self.agent._agenda_path}`
+"""
+
+        await self._safe_reply(update.effective_chat.id, context_info)
+
+    async def _setup_bot_commands(self) -> None:
+        """Set up bot command menu for Telegram."""
+        commands = [
+            BotCommand("start", "Initialize bot"),
+            BotCommand("help", "Show available commands"),
+            BotCommand("status", "Show bot status and info"),
+            BotCommand("clear", "Clear conversation and save summary"),
+            BotCommand("agenda", "Show current agenda"),
+            BotCommand("remind", "Set reminder (e.g. /remind 5m call mom)"),
+            BotCommand("schedule", "Schedule recurring task"),
+            BotCommand("tasks", "List scheduled tasks"),
+            BotCommand("cancel", "Cancel task by ID"),
+            BotCommand("code", "Execute code in workspace"),
+            BotCommand("ctx", "Show debug context"),
+        ]
+
+        try:
+            await self.app.bot.set_my_commands(commands)
+            logger.info("Bot commands menu configured")
+        except Exception as e:
+            logger.warning(f"Failed to set bot commands: {e}")
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""

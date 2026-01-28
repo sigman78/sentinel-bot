@@ -89,8 +89,12 @@ uv run sentinel health
 | `/schedule <pattern> <message>` | Create recurring task (e.g., "daily 9am check email") |
 | `/tasks` | List all scheduled tasks |
 | `/cancel <task_id>` | Cancel a scheduled task |
+| `/code <task>` | Generate and execute Python code |
+| `/ctx` | Show debug context (raw conversation state) |
 
 Natural language also works: "Remind me in 10 minutes to take a break"
+
+**Note**: Commands appear in Telegram's command menu for easy access.
 
 ## Development
 
