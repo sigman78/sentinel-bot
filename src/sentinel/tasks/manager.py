@@ -181,8 +181,10 @@ class TaskManager:
             else:
                 # Recurring task, calculate next run
                 try:
+                    # Calculate from task's scheduled time, not current time
+                    # This ensures proper advancement even when task is overdue
                     next_run = ScheduleParser.calculate_next_run(
-                        task.schedule_data, now
+                        task.schedule_data, task.next_run
                     )
                     await self.memory.update_task(
                         task.id, last_run=now, next_run=next_run
