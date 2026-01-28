@@ -191,30 +191,62 @@ class SQLiteMemoryStore(MemoryStore):
         memory_type: MemoryType | None = None,
         limit: int = 10,
     ) -> list[MemoryEntry]:
-        """Retrieve relevant memories using FTS5 search."""
+        """Retrieve relevant memories using FTS5 search with importance and temporal ranking.
+
+        Ranking formula:
+        - Relevance (FTS5 rank): 50%
+        - Importance/Confidence: 30%
+        - Recency (time decay): 20%
+        """
         results = []
         try:
             # Build type filter for FTS query
             type_filter = ""
             if memory_type:
-                type_filter = f" AND memory_type = '{memory_type.value}'"
+                type_filter = f" AND fts.memory_type = '{memory_type.value}'"
 
             # Escape query for FTS5 to handle special characters
             escaped_query = self._escape_fts_query(query)
 
-            # Search FTS5 table (now stores content directly)
+            # Join FTS with source tables to access importance and timestamp
+            # Calculate composite score with weights
             sql = f"""
-                SELECT id, content, memory_type
-                FROM memory_fts
-                WHERE content MATCH ? {type_filter}
-                ORDER BY rank
+                WITH scored_memories AS (
+                    SELECT
+                        fts.id,
+                        fts.memory_type,
+                        fts.rank as fts_rank,
+                        COALESCE(e.importance, f.confidence, 0.5) as importance,
+                        COALESCE(
+                            julianday('now') - julianday(e.timestamp),
+                            julianday('now') - julianday(f.created_at),
+                            999999
+                        ) as days_old,
+                        COALESCE(e.timestamp, f.created_at) as timestamp
+                    FROM memory_fts fts
+                    LEFT JOIN episodes e ON fts.id = e.id AND fts.memory_type = 'episodic'
+                    LEFT JOIN facts f ON fts.id = f.id AND fts.memory_type = 'semantic'
+                    WHERE fts.content MATCH ? {type_filter}
+                )
+                SELECT
+                    id,
+                    memory_type,
+                    -- Composite score: normalize each component and apply weights
+                    (
+                        (fts_rank * -0.5) +                          -- FTS rank (negative = better)
+                        (importance * 0.3) +                         -- Importance (0-1)
+                        (1.0 / (1.0 + days_old / 30.0) * 0.2)      -- Recency decay (30-day half-life)
+                    ) as composite_score
+                FROM scored_memories
+                ORDER BY composite_score DESC
                 LIMIT ?
             """
 
             async with self.conn.execute(sql, (escaped_query, limit)) as cursor:
                 async for row in cursor:
                     entry_id = row[0]
-                    entry_type = MemoryType(row[2])
+                    entry_type = MemoryType(row[1])
+                    # composite_score = row[2]  # Available for debugging
 
                     # Fetch full details from source table
                     if entry_type == MemoryType.EPISODIC or entry_type == MemoryType.SEMANTIC:

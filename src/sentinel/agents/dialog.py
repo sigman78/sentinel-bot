@@ -301,6 +301,56 @@ class DialogAgent(BaseAgent):
             return self._agenda[:500] + "..."
         return self._agenda
 
+    def _calculate_exchange_importance(self, user_msg: Message, assistant_msg: Message) -> float:
+        """Calculate importance score for a single exchange using heuristics.
+
+        Factors:
+        - Message length (longer exchanges = more substantial)
+        - Tool usage (tool calls = actionable/important)
+        - Keywords (questions, errors, decisions)
+        - Response metadata (cost can indicate complexity)
+
+        Returns: 0.0-1.0 importance score
+        """
+        score = 0.3  # Base score
+
+        # Factor 1: Message length (up to +0.2)
+        user_len = len(user_msg.content)
+        assistant_len = len(assistant_msg.content)
+        total_len = user_len + assistant_len
+
+        if total_len > 500:
+            score += 0.2
+        elif total_len > 200:
+            score += 0.1
+
+        # Factor 2: Tool usage (up to +0.3)
+        if assistant_msg.metadata:
+            tool_calls = assistant_msg.metadata.get("tool_calls", [])
+            if tool_calls:
+                score += min(0.3, len(tool_calls) * 0.1)
+
+        # Factor 3: Keywords in user message (up to +0.2)
+        user_lower = user_msg.content.lower()
+        importance_keywords = [
+            "important", "urgent", "remember", "always", "never",
+            "error", "problem", "help", "how do i", "why",
+            "decision", "choose", "prefer", "schedule", "remind"
+        ]
+        keyword_count = sum(1 for kw in importance_keywords if kw in user_lower)
+        if keyword_count > 0:
+            score += min(0.2, keyword_count * 0.05)
+
+        # Factor 4: Response cost/complexity (up to +0.2)
+        if assistant_msg.metadata:
+            cost = assistant_msg.metadata.get("cost_usd", 0)
+            if cost > 0.01:  # Expensive responses are usually complex
+                score += 0.2
+            elif cost > 0.005:
+                score += 0.1
+
+        return min(1.0, max(0.0, score))
+
     async def _persist_exchange(self, user_msg: Message, assistant_msg: Message) -> None:
         """Save conversation exchange to episodic memory."""
         try:
@@ -308,15 +358,19 @@ class DialogAgent(BaseAgent):
             if len(user_msg.content) > 100:
                 summary += "..."
 
+            # Calculate dynamic importance
+            importance = self._calculate_exchange_importance(user_msg, assistant_msg)
+
             entry = MemoryEntry(
                 id=str(uuid4()),
                 type=MemoryType.EPISODIC,
                 content=summary,
                 timestamp=datetime.now(),
-                importance=0.5,
+                importance=importance,
                 metadata={"user_msg_id": user_msg.id, "assistant_msg_id": assistant_msg.id},
             )
             await self.memory.store(entry)
+            logger.debug(f"Persisted exchange (importance: {importance:.2f})")
         except Exception as e:
             logger.warning(f"Failed to persist exchange: {e}")
 

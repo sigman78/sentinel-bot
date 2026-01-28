@@ -192,3 +192,105 @@ async def test_fts_escape_query(memory_store: SQLiteMemoryStore):
 
     # Test comma handling
     assert memory_store._escape_fts_query("a, b, c") == '"a, b, c"'
+
+
+@pytest.mark.asyncio
+async def test_retrieval_importance_ranking(memory_store: SQLiteMemoryStore):
+    """Test that retrieval ranks by importance, not just FTS score."""
+    from datetime import timedelta
+
+    # Create memories with different importance scores, same content
+    now = datetime.now()
+
+    low_importance = MemoryEntry(
+        id="low-imp",
+        type=MemoryType.EPISODIC,
+        content="Python programming discussion about functions",
+        timestamp=now - timedelta(days=1),
+        importance=0.3,  # Low importance
+    )
+    high_importance = MemoryEntry(
+        id="high-imp",
+        type=MemoryType.EPISODIC,
+        content="Python programming discussion about classes",
+        timestamp=now - timedelta(days=1),
+        importance=0.9,  # High importance
+    )
+
+    await memory_store.store(low_importance)
+    await memory_store.store(high_importance)
+
+    # Search for "Python programming"
+    results = await memory_store.retrieve("Python programming")
+
+    # High importance should rank first
+    assert len(results) >= 2
+    assert results[0].id == "high-imp", "High importance memory should rank first"
+
+
+@pytest.mark.asyncio
+async def test_retrieval_recency_ranking(memory_store: SQLiteMemoryStore):
+    """Test that retrieval considers recency in ranking."""
+    from datetime import timedelta
+
+    now = datetime.now()
+
+    # Create memories with same importance, different ages
+    old_memory = MemoryEntry(
+        id="old-mem",
+        type=MemoryType.EPISODIC,
+        content="Discussion about async programming patterns",
+        timestamp=now - timedelta(days=60),  # Old
+        importance=0.5,
+    )
+    recent_memory = MemoryEntry(
+        id="recent-mem",
+        type=MemoryType.EPISODIC,
+        content="Discussion about async programming best practices",
+        timestamp=now - timedelta(hours=2),  # Recent
+        importance=0.5,
+    )
+
+    await memory_store.store(old_memory)
+    await memory_store.store(recent_memory)
+
+    # Search for "async programming"
+    results = await memory_store.retrieve("async programming")
+
+    # Recent memory should rank higher (all else being equal)
+    assert len(results) >= 2
+    assert results[0].id == "recent-mem", "Recent memory should rank first"
+
+
+@pytest.mark.asyncio
+async def test_retrieval_composite_ranking(memory_store: SQLiteMemoryStore):
+    """Test that retrieval balances relevance, importance, and recency."""
+    from datetime import timedelta
+
+    now = datetime.now()
+
+    # Scenario: Old but very important vs recent but less important
+    old_important = MemoryEntry(
+        id="old-important",
+        type=MemoryType.EPISODIC,
+        content="Critical system architecture decision about database schema",
+        timestamp=now - timedelta(days=30),
+        importance=0.95,  # Very important
+    )
+    recent_less_important = MemoryEntry(
+        id="recent-less",
+        type=MemoryType.EPISODIC,
+        content="Quick database query tip",
+        timestamp=now - timedelta(hours=1),
+        importance=0.4,  # Less important
+    )
+
+    await memory_store.store(old_important)
+    await memory_store.store(recent_less_important)
+
+    # Search for "database"
+    results = await memory_store.retrieve("database")
+
+    # Old but very important should still rank first
+    assert len(results) >= 2
+    assert results[0].id == "old-important", "Very important memory should outweigh recency"

@@ -53,9 +53,15 @@ class SleepAgent(BaseAgent):
         )
 
     async def run_consolidation(self) -> dict:
-        """Main consolidation routine - run during idle."""
+        """Main consolidation routine - run during idle.
+
+        Consolidation pipeline:
+        1. Extract facts from recent memories (semantic memory)
+        2. Find and consolidate similar/redundant episodes
+        3. Apply importance decay to old memories
+        """
         self.state = AgentState.ACTIVE
-        result = {"facts_extracted": 0, "memories_consolidated": 0}
+        result = {"facts_extracted": 0, "memories_consolidated": 0, "memories_decayed": 0}
 
         try:
             # Get recent episodic memories
@@ -67,7 +73,7 @@ class SleepAgent(BaseAgent):
                 logger.debug("Not enough memories to consolidate")
                 return result
 
-            # Extract facts from summaries
+            # Phase 1: Extract facts from summaries
             facts = await self._extract_facts(recent)
             result["facts_extracted"] = len(facts)
 
@@ -85,11 +91,110 @@ class SleepAgent(BaseAgent):
 
             logger.info(f"Sleep: extracted {len(facts)} facts")
 
+            # Phase 2: Consolidate similar episodes
+            similar_groups = self._group_similar_memories(recent)
+            for group in similar_groups:
+                if len(group) >= 2:  # Only consolidate if 2+ similar memories
+                    consolidated = await self._consolidate_related(group)
+                    if consolidated:
+                        # Store consolidated version
+                        consolidated_entry = MemoryEntry(
+                            id=str(uuid4()),
+                            type=MemoryType.EPISODIC,
+                            content=consolidated,
+                            timestamp=datetime.now(),
+                            importance=max(m.importance for m in group),  # Keep highest importance
+                            metadata={
+                                "consolidated_from": [m.id for m in group],
+                                "source": "sleep_consolidation",
+                            },
+                        )
+                        await self.memory.store(consolidated_entry)
+
+                        # Mark originals as consolidated (lower importance dramatically)
+                        for memory in group:
+                            await self.memory.update(memory.id, importance=0.1)
+
+                        result["memories_consolidated"] += len(group)
+
+            logger.info(f"Sleep: consolidated {result['memories_consolidated']} memories")
+
+            # Phase 3: Apply importance decay to old memories
+            decay_count = await self._decay_old_memories()
+            result["memories_decayed"] = decay_count
+
         except Exception as e:
             logger.error(f"Consolidation failed: {e}")
 
         self.state = AgentState.READY
         return result
+
+    def _group_similar_memories(self, memories: list[MemoryEntry]) -> list[list[MemoryEntry]]:
+        """Group memories by similarity using simple heuristics.
+
+        Groups memories that:
+        - Share significant keywords (>50% overlap)
+        - Are within same time window (within 7 days)
+        """
+        groups = []
+        used = set()
+
+        for i, mem1 in enumerate(memories):
+            if mem1.id in used:
+                continue
+
+            # Start a new group
+            group = [mem1]
+            used.add(mem1.id)
+
+            # Find similar memories
+            mem1_words = set(mem1.content.lower().split())
+
+            for mem2 in memories[i + 1 :]:
+                if mem2.id in used:
+                    continue
+
+                # Check keyword overlap
+                mem2_words = set(mem2.content.lower().split())
+                overlap = len(mem1_words & mem2_words)
+                total = len(mem1_words | mem2_words)
+                similarity = overlap / total if total > 0 else 0
+
+                # Check time proximity
+                time_diff = abs((mem1.timestamp - mem2.timestamp).days)
+
+                # Group if similar and recent (>= 50% keyword overlap)
+                if similarity >= 0.5 and time_diff <= 7:
+                    group.append(mem2)
+                    used.add(mem2.id)
+
+            # Only keep groups with 2+ memories
+            if len(group) >= 2:
+                groups.append(group)
+
+        return groups
+
+    async def _decay_old_memories(self) -> int:
+        """Apply importance decay to memories older than consolidation window.
+
+        Reduces importance of old episodic memories to prioritize recent context.
+        """
+        decay_count = 0
+
+        try:
+            # Get old memories (older than consolidation window)
+            old_date = datetime.now() - self._consolidation_window
+
+            # Note: This requires adding a method to MemoryStore
+            # For now, skip this as it needs schema changes
+            # In future: await self.memory.decay_importance_before(old_date, factor=0.8)
+
+            logger.debug("Importance decay skipped (needs schema extension)")
+
+        except Exception as e:
+            logger.warning(f"Importance decay failed: {e}")
+
+        return decay_count
 
     async def _extract_facts(self, memories: list[MemoryEntry]) -> list[str]:
         """Extract durable facts from memory summaries."""
