@@ -112,3 +112,83 @@ async def test_user_profile_core_memory(memory_store: SQLiteMemoryStore):
 
     assert name == "TestUser"
     assert context == "Prefers concise responses"
+
+
+@pytest.mark.asyncio
+async def test_fts_search_basic(memory_store: SQLiteMemoryStore):
+    """FTS search finds relevant memories."""
+    entry = MemoryEntry(
+        id="search-1",
+        type=MemoryType.EPISODIC,
+        content="User asked about Python programming",
+        timestamp=datetime.now(),
+    )
+    await memory_store.store(entry)
+
+    results = await memory_store.retrieve("Python")
+    assert len(results) == 1
+    assert results[0].id == "search-1"
+
+
+@pytest.mark.asyncio
+async def test_fts_search_with_comma(memory_store: SQLiteMemoryStore):
+    """FTS search handles queries with commas."""
+    entry = MemoryEntry(
+        id="comma-1",
+        type=MemoryType.EPISODIC,
+        content="User likes apples, oranges, and bananas",
+        timestamp=datetime.now(),
+    )
+    await memory_store.store(entry)
+
+    # Search with comma should not cause syntax error
+    results = await memory_store.retrieve("apples, oranges")
+    assert len(results) == 1
+    assert results[0].id == "comma-1"
+
+
+@pytest.mark.asyncio
+async def test_fts_search_with_quotes(memory_store: SQLiteMemoryStore):
+    """FTS search handles queries with quotes."""
+    entry = MemoryEntry(
+        id="quote-1",
+        type=MemoryType.SEMANTIC,
+        content='User said "hello world" in chat',
+        timestamp=datetime.now(),
+    )
+    await memory_store.store(entry)
+
+    # Search with quotes should not cause syntax error
+    results = await memory_store.retrieve('"hello world"')
+    assert len(results) == 1
+    assert results[0].id == "quote-1"
+
+
+@pytest.mark.asyncio
+async def test_fts_search_with_special_chars(memory_store: SQLiteMemoryStore):
+    """FTS search handles queries with FTS5 operators."""
+    entry = MemoryEntry(
+        id="special-1",
+        type=MemoryType.EPISODIC,
+        content="User asked about C++ AND Python OR Java",
+        timestamp=datetime.now(),
+    )
+    await memory_store.store(entry)
+
+    # Search with FTS5 keywords should be treated as literals
+    results = await memory_store.retrieve("C++ AND Python")
+    assert len(results) == 1
+    assert results[0].id == "special-1"
+
+
+@pytest.mark.asyncio
+async def test_fts_escape_query(memory_store: SQLiteMemoryStore):
+    """Test FTS query escaping method."""
+    # Test basic escaping
+    assert memory_store._escape_fts_query("hello") == '"hello"'
+
+    # Test quote escaping
+    assert memory_store._escape_fts_query('say "hi"') == '"say ""hi"""'
+
+    # Test comma handling
+    assert memory_store._escape_fts_query("a, b, c") == '"a, b, c"'

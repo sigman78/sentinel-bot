@@ -174,6 +174,17 @@ class SQLiteMemoryStore(MemoryStore):
         await self.conn.commit()
         return entry_id
 
+    def _escape_fts_query(self, query: str) -> str:
+        """Escape query string for FTS5 MATCH.
+
+        Wraps query in double quotes to treat it as a phrase search,
+        escaping any internal double quotes by doubling them.
+        """
+        # Escape double quotes by doubling them
+        escaped = query.replace('"', '""')
+        # Wrap in quotes to make it a phrase search (treats special chars as literals)
+        return f'"{escaped}"'
+
     async def retrieve(
         self,
         query: str,
@@ -188,6 +199,9 @@ class SQLiteMemoryStore(MemoryStore):
             if memory_type:
                 type_filter = f" AND memory_type = '{memory_type.value}'"
 
+            # Escape query for FTS5 to handle special characters
+            escaped_query = self._escape_fts_query(query)
+
             # Search FTS5 table (now stores content directly)
             sql = f"""
                 SELECT id, content, memory_type
@@ -197,7 +211,7 @@ class SQLiteMemoryStore(MemoryStore):
                 LIMIT ?
             """
 
-            async with self.conn.execute(sql, (query, limit)) as cursor:
+            async with self.conn.execute(sql, (escaped_query, limit)) as cursor:
                 async for row in cursor:
                     entry_id = row[0]
                     entry_type = MemoryType(row[2])
