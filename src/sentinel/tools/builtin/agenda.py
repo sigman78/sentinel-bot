@@ -1,6 +1,5 @@
 """Agenda management tools."""
 
-import re
 from pathlib import Path
 
 from sentinel.core.types import ActionResult

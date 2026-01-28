@@ -3,10 +3,8 @@
 Tests the full workflow: task description → script generation → execution → result analysis.
 """
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest

@@ -1,7 +1,7 @@
 """Integration tests for agenda tools with real DialogAgent."""
 
+
 import pytest
-from pathlib import Path
 
 from sentinel.agents.dialog import DialogAgent
 from sentinel.llm.router import create_default_router

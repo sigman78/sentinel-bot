@@ -64,7 +64,7 @@ class ScriptExecutor:
                     proc.communicate(), timeout=timeout
                 )
                 timed_out = False
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.wait()
                 stdout_data = b"(execution timed out)"

@@ -11,7 +11,7 @@ from sentinel.agents.dialog import DialogAgent
 from sentinel.core.types import ActionResult, ContentType, Message
 from sentinel.llm.base import LLMResponse, ProviderType
 from sentinel.memory.store import SQLiteMemoryStore
-from sentinel.tools.base import Tool, tool
+from sentinel.tools.base import tool
 from sentinel.tools.registry import ToolRegistry
 
 

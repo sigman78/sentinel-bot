@@ -203,11 +203,7 @@ class SQLiteMemoryStore(MemoryStore):
                     entry_type = MemoryType(row[2])
 
                     # Fetch full details from source table
-                    if entry_type == MemoryType.EPISODIC:
-                        full_entry = await self.get(entry_id)
-                        if full_entry:
-                            results.append(full_entry)
-                    elif entry_type == MemoryType.SEMANTIC:
+                    if entry_type == MemoryType.EPISODIC or entry_type == MemoryType.SEMANTIC:
                         full_entry = await self.get(entry_id)
                         if full_entry:
                             results.append(full_entry)

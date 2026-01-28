@@ -1,11 +1,11 @@
 """Test FTS5 full-text search functionality."""
 
-import pytest
-from pathlib import Path
 from datetime import datetime
 
-from sentinel.memory.store import SQLiteMemoryStore
+import pytest
+
 from sentinel.memory.base import MemoryEntry, MemoryType
+from sentinel.memory.store import SQLiteMemoryStore
 
 
 @pytest.fixture

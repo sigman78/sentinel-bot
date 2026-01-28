@@ -61,8 +61,8 @@ def tool_registry(task_manager):
 @pytest.mark.asyncio
 async def test_add_reminder_via_natural_language(memory, tool_registry):
     """Test that natural language gets converted to tool call."""
-    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
+    from sentinel.llm.claude import ClaudeProvider
 
     settings = get_settings()
     if not settings.anthropic_api_key:
@@ -100,8 +100,8 @@ async def test_add_reminder_via_natural_language(memory, tool_registry):
 @pytest.mark.asyncio
 async def test_list_tasks_via_natural_language(memory, tool_registry, task_manager):
     """Test listing tasks via natural language."""
-    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
+    from sentinel.llm.claude import ClaudeProvider
 
     settings = get_settings()
     if not settings.anthropic_api_key:
@@ -132,8 +132,8 @@ async def test_list_tasks_via_natural_language(memory, tool_registry, task_manag
 @pytest.mark.asyncio
 async def test_recurring_task_via_natural_language(memory, tool_registry):
     """Test creating recurring task via natural language."""
-    from sentinel.llm.claude import ClaudeProvider
     from sentinel.core.config import get_settings
+    from sentinel.llm.claude import ClaudeProvider
 
     settings = get_settings()
     if not settings.anthropic_api_key:
@@ -175,8 +175,8 @@ async def test_tool_execution_without_llm(memory, tool_registry, task_manager):
     # This tests that tools work without requiring API keys
 
     # Manually create a tool call
-    from sentinel.tools.parser import ToolCall
     from sentinel.tools.executor import ToolExecutor
+    from sentinel.tools.parser import ToolCall
 
     executor = ToolExecutor(tool_registry)
 

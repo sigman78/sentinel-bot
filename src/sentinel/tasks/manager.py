@@ -1,7 +1,7 @@
 """Task manager - coordinates task scheduling and execution."""
 
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import uuid4
 
 from sentinel.core.logging import get_logger

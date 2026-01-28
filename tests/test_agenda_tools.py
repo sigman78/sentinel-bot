@@ -1,14 +1,14 @@
 """Tests for agenda management tools."""
 
+
 import pytest
-from pathlib import Path
 
 from sentinel.tools.builtin.agenda import (
+    _parse_agenda,
+    _rebuild_agenda,
     check_agenda,
     set_data_dir,
     update_agenda,
-    _parse_agenda,
-    _rebuild_agenda,
 )
 
 

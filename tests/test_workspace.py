@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.workspace.executor import ExecutionResult, ScriptExecutor
+from sentinel.workspace.executor import ScriptExecutor
 from sentinel.workspace.manager import WorkspaceManager
 from sentinel.workspace.sandbox import SandboxValidator
 

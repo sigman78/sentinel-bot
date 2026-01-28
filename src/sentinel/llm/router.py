@@ -41,7 +41,7 @@ class LLMRouter:
 
     def __init__(self):
         self._providers: dict[ProviderType, LLMProvider] = {}
-        self._cost_tracker: "CostTracker | None" = None
+        self._cost_tracker: CostTracker | None = None
 
     def set_cost_tracker(self, tracker: "CostTracker") -> None:
         """Set cost tracking service."""
@@ -80,7 +80,11 @@ class LLMRouter:
         Returns:
             LLMResponse with content and metadata
         """
-        from sentinel.llm.registry import MODEL_REGISTRY, get_models_by_difficulty, rank_models_by_cost
+        from sentinel.llm.registry import (
+            MODEL_REGISTRY,
+            get_models_by_difficulty,
+            rank_models_by_cost,
+        )
 
         # 1. Determine difficulty level from task
         difficulty = TASK_DIFFICULTY.get(task, 2) if task else 2
