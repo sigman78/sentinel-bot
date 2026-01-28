@@ -68,3 +68,6 @@ data/episodes/
 # Processing
 temp/
 output/
+
+# Claude
+.claude/*.local.*
