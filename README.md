@@ -2,6 +2,8 @@
 
 Personal AI agents swarm - self-evolving assistant system.
 
+![Sentinel](docs/sentinel-logo.png)
+
 ## Features
 
 - **Multi-agent orchestration** with shared/specialized memories
