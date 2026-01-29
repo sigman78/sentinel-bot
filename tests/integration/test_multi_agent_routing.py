@@ -12,7 +12,7 @@ import pytest
 from sentinel.agents.dialog import DialogAgent
 from sentinel.core.types import ContentType, Message
 from sentinel.llm.cost_tracker import CostTracker
-from sentinel.llm.router import LLMRouter, TaskType, create_default_router
+from sentinel.llm.router import SentinelLLMRouter, TaskType, create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 
 
@@ -215,7 +215,7 @@ async def test_cost_tracking_across_multiple_requests():
         pytest.skip("No Anthropic API key configured")
 
     # Create router with small budget
-    router = LLMRouter()
+    router = SentinelLLMRouter()
     tracker = CostTracker(daily_limit=0.10)  # 10 cents
     router.set_cost_tracker(tracker)
 

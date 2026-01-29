@@ -8,7 +8,7 @@ from uuid import uuid4
 from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.llm.base import LLMProvider
+from sentinel.agents.base import LLMProvider
 from sentinel.memory.base import MemoryStore
 
 logger = get_logger("agents.awareness")

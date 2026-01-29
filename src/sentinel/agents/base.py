@@ -8,13 +8,28 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sentinel.core.types import AgentContext, AgentType, Message
 
 if TYPE_CHECKING:
-    from sentinel.llm.base import LLMProvider
+    from sentinel.llm.base import LLMConfig, LLMResponse
     from sentinel.memory.base import MemoryStore
+
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """Protocol for LLM providers (router or direct provider)."""
+
+    async def complete(
+        self,
+        messages: list[dict],
+        config: "LLMConfig",
+        task: object = None,
+        tools: list[dict] | None = None,
+    ) -> "LLMResponse":
+        """Generate completion from messages."""
+        ...
 
 
 class AgentState(Enum):

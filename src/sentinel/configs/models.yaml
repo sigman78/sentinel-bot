@@ -1,0 +1,148 @@
+# Model registry for Sentinel
+# Maps task difficulty to available models with cost/capability metadata
+
+models:
+  # Hard difficulty (3) - Complex reasoning
+  - model_id: claude-sonnet-4
+    litellm_name: claude-sonnet-4-20250514
+    provider: anthropic
+    difficulty: 3
+    cost_per_1m_input: 3.0
+    cost_per_1m_output: 15.0
+    max_context: 200000
+    avg_latency_ms: 2000
+    quality_score: 0.95
+    multimodal: true
+    supports_tools: true
+    notes: "Balanced quality/cost for complex tasks"
+    auth_env: SENTINEL_ANTHROPIC_API_KEY
+
+  - model_id: claude-opus-4
+    litellm_name: claude-opus-4-20250514
+    provider: anthropic
+    difficulty: 3
+    cost_per_1m_input: 15.0
+    cost_per_1m_output: 75.0
+    max_context: 200000
+    avg_latency_ms: 3000
+    quality_score: 1.0
+    multimodal: true
+    supports_tools: true
+    notes: "Best reasoning, highest cost"
+    auth_env: SENTINEL_ANTHROPIC_API_KEY
+
+  # Intermediate difficulty (2)
+  - model_id: claude-haiku-3.5
+    litellm_name: claude-haiku-3-5-20241022
+    provider: anthropic
+    difficulty: 2
+    cost_per_1m_input: 0.8
+    cost_per_1m_output: 4.0
+    max_context: 200000
+    avg_latency_ms: 800
+    quality_score: 0.85
+    multimodal: true
+    supports_tools: true
+    notes: "Fast, cheap, good for simple tasks"
+    auth_env: SENTINEL_ANTHROPIC_API_KEY
+
+  - model_id: gemini-pro-1.5
+    litellm_name: gemini/gemini-1.5-pro
+    provider: vertex_ai
+    difficulty: 2
+    cost_per_1m_input: 1.25
+    cost_per_1m_output: 5.0
+    max_context: 1000000
+    avg_latency_ms: 2000
+    quality_score: 0.85
+    multimodal: true
+    supports_tools: true
+    notes: "Huge context window"
+    auth_env: SENTINEL_OPENROUTER_API_KEY
+
+  - model_id: llama-3.1-70b
+    litellm_name: openrouter/meta-llama/llama-3.1-70b-instruct
+    provider: openrouter
+    difficulty: 2
+    cost_per_1m_input: 0.52
+    cost_per_1m_output: 0.75
+    max_context: 128000
+    avg_latency_ms: 1500
+    quality_score: 0.75
+    supports_tools: true
+    notes: "Good balance via OpenRouter"
+    auth_env: SENTINEL_OPENROUTER_API_KEY
+
+  # Easy difficulty (1)
+  - model_id: gpt-4o-mini
+    litellm_name: openrouter/openai/gpt-4o-mini
+    provider: openrouter
+    difficulty: 1
+    cost_per_1m_input: 0.15
+    cost_per_1m_output: 0.6
+    max_context: 128000
+    avg_latency_ms: 1000
+    quality_score: 0.75
+    multimodal: true
+    supports_tools: true
+    notes: "Good cheap option"
+    auth_env: SENTINEL_OPENROUTER_API_KEY
+
+  - model_id: gemini-flash-1.5
+    litellm_name: gemini/gemini-1.5-flash
+    provider: vertex_ai
+    difficulty: 1
+    cost_per_1m_input: 0.075
+    cost_per_1m_output: 0.3
+    max_context: 1000000
+    avg_latency_ms: 800
+    quality_score: 0.7
+    multimodal: true
+    supports_tools: true
+    notes: "Very fast, huge context"
+    auth_env: SENTINEL_OPENROUTER_API_KEY
+
+  - model_id: llama-3.1-8b
+    litellm_name: openrouter/meta-llama/llama-3.1-8b-instruct
+    provider: openrouter
+    difficulty: 1
+    cost_per_1m_input: 0.05
+    cost_per_1m_output: 0.08
+    max_context: 128000
+    avg_latency_ms: 600
+    quality_score: 0.65
+    supports_tools: true
+    notes: "Very cheap via OpenRouter"
+    auth_env: SENTINEL_OPENROUTER_API_KEY
+
+  - model_id: local-default
+    litellm_name: ollama/llama3.1:8b
+    provider: ollama
+    difficulty: 1
+    cost_per_1m_input: 0.0
+    cost_per_1m_output: 0.0
+    max_context: 128000
+    avg_latency_ms: 2000
+    quality_score: 0.6
+    supports_tools: true
+    multimodal: false
+    notes: "Free local inference"
+    auth_env: null
+    base_url_env: SENTINEL_LOCAL_LLM_URL
+
+# Routing preferences
+routing:
+  # Budget threshold for auto-downgrade (0.0-1.0)
+  budget_threshold: 0.8
+
+  # Default task difficulty mapping
+  task_difficulty:
+    chat: 3
+    reasoning: 3
+    fact_extraction: 2
+    summarization: 2
+    background: 2
+    simple: 1
+    tool_call: 1
+    inter_agent: 1
+    importance_scoring: 1

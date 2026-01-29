@@ -79,37 +79,35 @@ class TelegramInterface(Interface):
         # Get tool registry for DialogAgent
         tool_registry = get_global_registry()
 
-        # Smart LLM assignment: cheap models for sub-agents, premium for DialogAgent
-        cheap_llm = self._get_cheap_llm()
-        premium_llm = self._get_premium_llm()
-
-        logger.info(f"Sub-agents using: {cheap_llm.provider_type.value}")
-        logger.info(f"DialogAgent using: {premium_llm.provider_type.value}")
+        # All agents use the router - it auto-selects models based on task difficulty
+        # Sub-agents doing SIMPLE/BACKGROUND tasks get cheap models
+        # DialogAgent doing CHAT/REASONING tasks gets premium models
+        logger.info("Using LiteLLM-based router for all agents (task-aware model selection)")
 
         # Initialize all specialized agents (auto-discovered + hardcoded)
         from sentinel.core.agent_service import initialize_agents
 
         tool_agent_registry = initialize_agents(
-            cheap_llm=cheap_llm,
+            cheap_llm=self._router,
             working_dir=settings.data_dir.parent,
         )
 
         self.agent = DialogAgent(
-            llm=premium_llm,
+            llm=self._router,
             memory=self.memory,
             tool_registry=tool_registry,
             tool_agent_registry=tool_agent_registry,
         )
         await self.agent.initialize()
 
-        # Initialize background agents with cheap LLM
-        self._sleep_agent = SleepAgent(llm=cheap_llm, memory=self.memory)
+        # Initialize background agents with router
+        self._sleep_agent = SleepAgent(llm=self._router, memory=self.memory)
         self._awareness_agent = AwarenessAgent(
-            llm=cheap_llm,
+            llm=self._router,
             memory=self.memory,
             notify_callback=self._send_notification,
         )
-        self._code_agent = CodeAgent(llm=cheap_llm, memory=self.memory)
+        self._code_agent = CodeAgent(llm=self._router, memory=self.memory)
         await self._code_agent.initialize()
 
         # Schedule background tasks
@@ -132,49 +130,6 @@ class TelegramInterface(Interface):
 
         logger.info(f"Initialized with identity: {settings.identity_path}")
 
-    def _get_cheap_llm(self) -> LLMProvider:
-        """Get cheapest available LLM provider for sub-agents.
-
-        Priority: local > openrouter > claude
-        """
-        from sentinel.llm.base import ProviderType
-
-        # Prefer local models (free/fast)
-        if ProviderType.LOCAL in self._router.available_providers:
-            return self._router.get(ProviderType.LOCAL)
-
-        # Then OpenRouter (cheaper than direct Claude)
-        if ProviderType.OPENROUTER in self._router.available_providers:
-            return self._router.get(ProviderType.OPENROUTER)
-
-        # Fallback to Claude if nothing else available
-        if ProviderType.CLAUDE in self._router.available_providers:
-            return self._router.get(ProviderType.CLAUDE)
-
-        # Should never reach here due to check in _init_components
-        raise RuntimeError("No LLM providers available")
-
-    def _get_premium_llm(self) -> LLMProvider:
-        """Get premium LLM provider for DialogAgent.
-
-        Priority: claude > openrouter > local
-        """
-        from sentinel.llm.base import ProviderType
-
-        # Prefer Claude for best conversational quality
-        if ProviderType.CLAUDE in self._router.available_providers:
-            return self._router.get(ProviderType.CLAUDE)
-
-        # Fallback to OpenRouter
-        if ProviderType.OPENROUTER in self._router.available_providers:
-            return self._router.get(ProviderType.OPENROUTER)
-
-        # Last resort: local model
-        if ProviderType.LOCAL in self._router.available_providers:
-            return self._router.get(ProviderType.LOCAL)
-
-        # Should never reach here
-        raise RuntimeError("No LLM providers available")
 
     async def start(self) -> None:
         """Start Telegram bot."""

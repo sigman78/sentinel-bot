@@ -1,16 +1,17 @@
-"""LLM provider router - selects provider based on task and availability."""
+"""LLM provider router - task-aware model selection with LiteLLM."""
 
 from enum import Enum
 
-from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
-from sentinel.llm.base import LLMConfig, LLMProvider, LLMResponse, ProviderType
+from sentinel.llm.base import LLMConfig, LLMResponse
+from sentinel.llm.litellm_adapter import LiteLLMAdapter, create_adapter
 
 logger = get_logger("llm.router")
 
 
 class TaskType(Enum):
     """Task categories for model selection."""
+
     CHAT = "chat"
     REASONING = "reasoning"
     SIMPLE = "simple"
@@ -22,136 +23,106 @@ class TaskType(Enum):
     IMPORTANCE_SCORING = "importance_scoring"
 
 
-# Map task types to difficulty levels (1=Easy, 2=Intermediate, 3=Hard)
-TASK_DIFFICULTY: dict[TaskType, int] = {
-    TaskType.CHAT: 3,  # Hard - complex conversation, maintain personality
-    TaskType.REASONING: 3,  # Hard - complex logic
-    TaskType.FACT_EXTRACTION: 2,  # Intermediate - extract structured info
-    TaskType.SUMMARIZATION: 2,  # Intermediate - condense content
-    TaskType.BACKGROUND: 2,  # Intermediate - consolidation tasks
-    TaskType.SIMPLE: 1,  # Easy - basic operations
-    TaskType.TOOL_CALL: 1,  # Easy - structured I/O
-    TaskType.INTER_AGENT: 1,  # Easy - high volume simple comms
-    TaskType.IMPORTANCE_SCORING: 1,  # Easy - simple classification
-}
+class SentinelLLMRouter:
+    """Router with task-aware model selection using LiteLLM."""
 
+    def __init__(self, adapter: LiteLLMAdapter):
+        self.adapter = adapter
+        self.registry = adapter.registry
+        self._cost_tracker = None
 
-class LLMRouter:
-    """Routes LLM requests to appropriate provider with fallback."""
+        # Load task difficulty from config
+        routing = self.registry.routing_config
+        self.task_difficulty = routing.get("task_difficulty", {})
+        self.budget_threshold = routing.get("budget_threshold", 0.8)
 
-    def __init__(self):
-        self._providers: dict[ProviderType, LLMProvider] = {}
-        self._cost_tracker: CostTracker | None = None
+        logger.info(
+            f"Router initialized with {len(self.registry.models)} models, "
+            f"budget_threshold={self.budget_threshold}"
+        )
 
-    def set_cost_tracker(self, tracker: "CostTracker") -> None:
+    def set_cost_tracker(self, tracker) -> None:
         """Set cost tracking service."""
         self._cost_tracker = tracker
 
-    def register(self, provider: LLMProvider) -> None:
-        """Register a provider."""
-        self._providers[provider.provider_type] = provider
-        logger.info(f"Registered provider: {provider.provider_type.value}")
-
-    def get(self, provider_type: ProviderType) -> LLMProvider | None:
-        """Get specific provider."""
-        return self._providers.get(provider_type)
-
     @property
-    def available_providers(self) -> list[ProviderType]:
-        """List registered providers."""
-        return list(self._providers.keys())
+    def available_providers(self) -> list[str]:
+        """Get list of available providers (backward compatibility).
+
+        Returns non-empty list if any models are configured and available.
+        """
+        available = [m.provider for m in self.registry.models.values() if m.is_available]
+        return list(set(available))  # Unique providers
 
     async def complete(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         config: LLMConfig,
-        preferred: ProviderType | None = None,
+        preferred: str | None = None,
         task: TaskType | None = None,
         tools: list[dict] | None = None,
     ) -> LLMResponse:
-        """Route completion to optimal provider based on task/cost.
+        """Route completion to optimal model based on task/cost.
 
         Args:
             messages: List of message dicts with role/content
             config: LLM configuration (model, tokens, temperature)
-            preferred: Preferred provider (optional)
+            preferred: Preferred model ID (optional)
             task: Task type for intelligent routing (optional)
+            tools: Tool definitions for function calling (optional)
 
         Returns:
             LLMResponse with content and metadata
         """
-        from sentinel.llm.registry import (
-            MODEL_REGISTRY,
-            get_models_by_difficulty,
-            rank_models_by_cost,
-        )
-
-        # 1. Determine difficulty level from task
-        difficulty = TASK_DIFFICULTY.get(task, 2) if task else 2
+        # 1. Determine difficulty from task
+        difficulty = self.task_difficulty.get(task.value if task else "simple", 2)
 
         # 2. Check budget - downgrade if approaching limit
         if self._cost_tracker and self._cost_tracker.should_use_cheaper_model():
             if difficulty > 1:
-                original_difficulty = difficulty
+                original = difficulty
                 difficulty = max(1, difficulty - 1)
+                summary = self._cost_tracker.get_cost_summary()
                 logger.info(
-                    f"Budget at {self._cost_tracker.get_cost_summary()['percent_used']:.1f}%: "
-                    f"downgraded difficulty {original_difficulty} -> {difficulty}"
+                    f"Budget at {summary['percent_used']:.1f}%: "
+                    f"downgraded difficulty {original} -> {difficulty}"
                 )
 
         # 3. Get candidate models for this difficulty
-        candidates = get_models_by_difficulty(difficulty)
+        candidates = self.registry.get_by_difficulty(difficulty)
 
-        # 4. Filter by available providers
-        available = [m for m in candidates if m.provider in self._providers]
-
-        if not available:
-            # Fallback: try easier difficulty if none available
+        if not candidates:
+            # Fallback to easier difficulty
             if difficulty > 1:
-                logger.warning(
-                    f"No models available for difficulty {difficulty}, trying easier"
-                )
+                logger.warning(f"No models for difficulty {difficulty}, trying easier")
                 return await self.complete(
                     messages, config, preferred=None, task=TaskType.SIMPLE, tools=tools
                 )
+            raise RuntimeError("No models available in registry")
 
-            # If even easy models are unavailable, use cheapest available model
-            fallback = [m for m in MODEL_REGISTRY.values() if m.provider in self._providers]
-            if not fallback:
-                raise RuntimeError("No providers registered")
-
-            logger.warning(
-                "No models available for difficulty 1; falling back to cheapest available"
-            )
-            available = rank_models_by_cost(fallback)
-
-        # 5. Honor preferred provider if specified
+        # 4. Honor preferred model if specified and available
         if preferred:
-            available = [m for m in available if m.provider == preferred] + [
-                m for m in available if m.provider != preferred
-            ]
+            pref_model = self.registry.get(preferred)
+            if pref_model and pref_model.is_available:
+                # Put preferred model first
+                candidates = [
+                    m for m in candidates if m.model_id == preferred
+                ] + [m for m in candidates if m.model_id != preferred]
 
-        # 6. Sort by cost (cheapest first within difficulty)
-        available = rank_models_by_cost(available)
+        # 5. Sort by cost (cheapest first within difficulty)
+        candidates = self.registry.rank_by_cost(candidates)
 
-        # 7. Try each candidate in order
+        # 6. Try each candidate in order
         last_error: Exception | None = None
-        for model_cap in available:
-            provider = self._providers[model_cap.provider]
-
-            # Use explicit model from config if set, otherwise from registry
-            model_to_use = config.model or model_cap.model_id
-
+        for model_config in candidates:
             try:
-                response = await provider.complete(
-                    messages,
-                    LLMConfig(
-                        model=model_to_use,
-                        max_tokens=config.max_tokens,
-                        temperature=config.temperature,
-                        system_prompt=config.system_prompt,
-                    ),
-                    task=task,
+                # Use explicit model from config if set, otherwise from routing
+                model_to_use = config.model or model_config.model_id
+
+                response = await self.adapter.complete(
+                    model_id=model_to_use,
+                    messages=messages,
+                    config=config,
                     tools=tools,
                 )
 
@@ -167,20 +138,18 @@ class LLMRouter:
                 return response
 
             except Exception as e:
-                logger.warning(
-                    f"Model {model_to_use} ({model_cap.provider.value}) failed: {e}"
-                )
+                logger.warning(f"Model {model_config.model_id} failed: {e}")
                 last_error = e
                 continue
 
-        # 8. If all same-difficulty failed, try easier models as fallback
+        # 7. All same-difficulty failed - try easier models as fallback
         if difficulty > 1:
             logger.warning("All models failed, trying easier difficulty")
             return await self.complete(
                 messages, config, preferred=None, task=TaskType.SIMPLE, tools=tools
             )
 
-        raise RuntimeError(f"All providers failed. Last error: {last_error}")
+        raise RuntimeError(f"All models failed. Last error: {last_error}")
 
     async def complete_simple(self, prompt: str, task: TaskType = TaskType.SIMPLE) -> str:
         """Convenience method for simple single-turn completions."""
@@ -189,54 +158,19 @@ class LLMRouter:
         response = await self.complete(messages, config, task=task)
         return response.content
 
-    async def health_check_all(self) -> dict[ProviderType, bool]:
-        """Check health of all registered providers."""
-        results = {}
-        for ptype, provider in self._providers.items():
-            results[ptype] = await provider.health_check()
-        return results
 
-    async def close_all(self) -> None:
-        """Close all provider connections."""
-        for provider in self._providers.values():
-            if hasattr(provider, "close"):
-                await provider.close()
-
-
-def create_default_router() -> LLMRouter:
-    """Create router with providers from settings."""
-    from sentinel.llm.claude import ClaudeProvider
+def create_default_router() -> SentinelLLMRouter:
+    """Create router with LiteLLM adapter and cost tracking."""
+    from sentinel.core.config import get_settings
     from sentinel.llm.cost_tracker import CostTracker
-    from sentinel.llm.local import LocalProvider
-    from sentinel.llm.openrouter import OpenRouterProvider
 
     settings = get_settings()
-    router = LLMRouter()
+
+    adapter = create_adapter()
+    router = SentinelLLMRouter(adapter)
 
     # Set up cost tracking
     cost_tracker = CostTracker(daily_limit=settings.daily_cost_limit)
     router.set_cost_tracker(cost_tracker)
-
-    # Claude (primary)
-    if settings.anthropic_api_key:
-        try:
-            router.register(ClaudeProvider())
-        except Exception as e:
-            logger.warning(f"Failed to init Claude: {e}")
-
-    # OpenRouter (fallback)
-    if settings.openrouter_api_key:
-        try:
-            router.register(OpenRouterProvider())
-        except Exception as e:
-            logger.warning(f"Failed to init OpenRouter: {e}")
-
-    # Local LLM (background tasks)
-    if settings.local_llm_url:
-        try:
-            local = LocalProvider()
-            router.register(local)
-        except Exception as e:
-            logger.warning(f"Failed to init local LLM: {e}")
 
     return router

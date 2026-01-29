@@ -11,7 +11,7 @@ from sentinel.agents.tool_agents.weather import WeatherAgent
 from sentinel.configs import CLI_AGENT_CONFIGS
 from sentinel.core.logging import get_logger
 from sentinel.core.tool_agent_registry import ToolAgentRegistry, get_tool_agent_registry
-from sentinel.llm.base import LLMProvider
+from sentinel.agents.base import LLMProvider
 
 logger = get_logger("core.agent_service")
 

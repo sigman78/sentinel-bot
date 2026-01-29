@@ -1,13 +1,8 @@
 """Tests for LLM module."""
 
-from sentinel.llm.base import LLMConfig, ProviderType
-from sentinel.llm.router import TASK_DIFFICULTY, LLMRouter, TaskType
-
-
-def test_router_no_providers():
-    """Router raises when no providers registered."""
-    router = LLMRouter()
-    assert len(router._providers) == 0
+from sentinel.llm.base import LLMConfig
+from sentinel.llm.router import SentinelLLMRouter, TaskType
+from sentinel.llm.litellm_adapter import create_adapter
 
 
 def test_llm_config_defaults():
@@ -16,13 +11,6 @@ def test_llm_config_defaults():
     assert config.max_tokens == 4096
     assert config.temperature == 0.7
     assert config.system_prompt is None
-
-
-def test_provider_type_values():
-    """ProviderType enum has expected values."""
-    assert ProviderType.CLAUDE.value == "claude"
-    assert ProviderType.OPENROUTER.value == "openrouter"
-    assert ProviderType.LOCAL.value == "local"
 
 
 def test_task_type_values():
@@ -38,35 +26,64 @@ def test_task_type_values():
     assert TaskType.INTER_AGENT.value == "inter_agent"
 
 
-def test_router_available_providers():
-    """Router tracks available providers."""
-    router = LLMRouter()
-    assert router.available_providers == []
+def test_router_task_difficulty_mapping():
+    """Router loads task difficulty from config."""
+    adapter = create_adapter()
+    router = SentinelLLMRouter(adapter)
 
+    # Should have task difficulty mapping from YAML
+    assert "chat" in router.task_difficulty
+    assert "reasoning" in router.task_difficulty
+    assert "simple" in router.task_difficulty
 
-def test_task_difficulty_mapping():
-    """All task types have difficulty mappings."""
     # Hard difficulty (3)
-    assert TASK_DIFFICULTY[TaskType.CHAT] == 3
-    assert TASK_DIFFICULTY[TaskType.REASONING] == 3
+    assert router.task_difficulty["chat"] == 3
+    assert router.task_difficulty["reasoning"] == 3
 
     # Intermediate difficulty (2)
-    assert TASK_DIFFICULTY[TaskType.FACT_EXTRACTION] == 2
-    assert TASK_DIFFICULTY[TaskType.SUMMARIZATION] == 2
-    assert TASK_DIFFICULTY[TaskType.BACKGROUND] == 2
+    assert router.task_difficulty["fact_extraction"] == 2
+    assert router.task_difficulty["summarization"] == 2
+    assert router.task_difficulty["background"] == 2
 
     # Easy difficulty (1)
-    assert TASK_DIFFICULTY[TaskType.SIMPLE] == 1
-    assert TASK_DIFFICULTY[TaskType.TOOL_CALL] == 1
-    assert TASK_DIFFICULTY[TaskType.INTER_AGENT] == 1
-    assert TASK_DIFFICULTY[TaskType.IMPORTANCE_SCORING] == 1
+    assert router.task_difficulty["simple"] == 1
+    assert router.task_difficulty["tool_call"] == 1
+    assert router.task_difficulty["inter_agent"] == 1
+    assert router.task_difficulty["importance_scoring"] == 1
 
 
 def test_cost_tracker_initialization():
     """CostTracker can be set on router."""
     from sentinel.llm.cost_tracker import CostTracker
 
-    router = LLMRouter()
+    adapter = create_adapter()
+    router = SentinelLLMRouter(adapter)
     tracker = CostTracker(daily_limit=10.0)
     router.set_cost_tracker(tracker)
     assert router._cost_tracker is not None
+
+
+def test_router_registry_access():
+    """Router has access to model registry."""
+    adapter = create_adapter()
+    router = SentinelLLMRouter(adapter)
+
+    assert router.registry is not None
+    assert len(router.registry.models) > 0
+
+
+def test_router_model_selection_by_difficulty():
+    """Router can get models by difficulty."""
+    adapter = create_adapter()
+    router = SentinelLLMRouter(adapter)
+
+    # Should have models for each difficulty level
+    easy_models = router.registry.get_by_difficulty(1)
+    medium_models = router.registry.get_by_difficulty(2)
+    hard_models = router.registry.get_by_difficulty(3)
+
+    # Should have at least one model per difficulty (if credentials available)
+    # This test only verifies structure, not availability
+    assert isinstance(easy_models, list)
+    assert isinstance(medium_models, list)
+    assert isinstance(hard_models, list)
