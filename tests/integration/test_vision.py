@@ -66,13 +66,15 @@ async def test_vision_with_claude():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    from sentinel.llm.base import ProviderType
+    # Check if any provider with multimodal support is available
+    multimodal_models = [
+        m for m in router.registry.models.values()
+        if m.multimodal and m.is_available
+    ]
+    if not multimodal_models:
+        pytest.skip("No multimodal models configured")
 
-    # Check if Claude is available (required for vision)
-    if ProviderType.CLAUDE not in router.available_providers:
-        pytest.skip("Claude provider not configured (required for vision)")
-
-    llm = router.get(ProviderType.CLAUDE)
+    llm = router
 
     # Create a simple 1x1 red pixel PNG
     red_pixel_png = (
@@ -122,13 +124,15 @@ async def test_vision_through_dialog_agent():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    from sentinel.llm.base import ProviderType
+    # Check if any provider with multimodal support is available
+    multimodal_models = [
+        m for m in router.registry.models.values()
+        if m.multimodal and m.is_available
+    ]
+    if not multimodal_models:
+        pytest.skip("No multimodal models configured")
 
-    # Use Claude if available, otherwise skip
-    if ProviderType.CLAUDE not in router.available_providers:
-        pytest.skip("Claude provider required for vision test")
-
-    llm = router.get(ProviderType.CLAUDE)
+    llm = router
 
     # Create in-memory database for test
     memory = SQLiteMemoryStore(":memory:")

@@ -62,13 +62,13 @@ def tool_registry(task_manager):
 async def test_add_reminder_via_natural_language(memory, tool_registry):
     """Test that natural language gets converted to tool call."""
     from sentinel.core.config import get_settings
-    from sentinel.llm.claude import ClaudeProvider
+    from sentinel.llm.router import create_default_router
 
     settings = get_settings()
-    if not settings.anthropic_api_key:
-        pytest.skip("SENTINEL_ANTHROPIC_API_KEY not configured")
+    if not settings.anthropic_api_key and not settings.openrouter_api_key:
+        pytest.skip("No API keys configured")
 
-    llm = ClaudeProvider(settings.anthropic_api_key)
+    llm = create_default_router()
     agent = DialogAgent(llm=llm, memory=memory, tool_registry=tool_registry)
     await agent.initialize()
 
@@ -101,16 +101,16 @@ async def test_add_reminder_via_natural_language(memory, tool_registry):
 async def test_list_tasks_via_natural_language(memory, tool_registry, task_manager):
     """Test listing tasks via natural language."""
     from sentinel.core.config import get_settings
-    from sentinel.llm.claude import ClaudeProvider
+    from sentinel.llm.router import create_default_router
 
     settings = get_settings()
-    if not settings.anthropic_api_key:
-        pytest.skip("SENTINEL_ANTHROPIC_API_KEY not configured")
+    if not settings.anthropic_api_key and not settings.openrouter_api_key:
+        pytest.skip("No API keys configured")
 
     # Create a task first
     await task_manager.add_reminder("1h", "test reminder")
 
-    llm = ClaudeProvider(settings.anthropic_api_key)
+    llm = create_default_router()
     agent = DialogAgent(llm=llm, memory=memory, tool_registry=tool_registry)
     await agent.initialize()
 
@@ -133,13 +133,13 @@ async def test_list_tasks_via_natural_language(memory, tool_registry, task_manag
 async def test_recurring_task_via_natural_language(memory, tool_registry):
     """Test creating recurring task via natural language."""
     from sentinel.core.config import get_settings
-    from sentinel.llm.claude import ClaudeProvider
+    from sentinel.llm.router import create_default_router
 
     settings = get_settings()
-    if not settings.anthropic_api_key:
-        pytest.skip("SENTINEL_ANTHROPIC_API_KEY not configured")
+    if not settings.anthropic_api_key and not settings.openrouter_api_key:
+        pytest.skip("No API keys configured")
 
-    llm = ClaudeProvider(settings.anthropic_api_key)
+    llm = create_default_router()
     agent = DialogAgent(llm=llm, memory=memory, tool_registry=tool_registry)
     await agent.initialize()
 

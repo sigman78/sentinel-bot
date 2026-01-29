@@ -13,8 +13,8 @@ async def test_initialize_agents_with_real_llm():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    # Get a cheap LLM provider
-    llm = list(router._providers.values())[0]
+    # Use the router as the LLM provider (it auto-selects models)
+    llm = router
 
     # Initialize agents
     registry = initialize_agents(

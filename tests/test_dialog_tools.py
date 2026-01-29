@@ -9,7 +9,7 @@ import pytest
 
 from sentinel.agents.dialog import DialogAgent
 from sentinel.core.types import ActionResult, ContentType, Message
-from sentinel.llm.base import LLMResponse, ProviderType
+from sentinel.llm.base import LLMResponse
 from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tools.base import tool
 from sentinel.tools.registry import ToolRegistry
@@ -31,8 +31,6 @@ def mock_llm():
     """Create mock LLM provider."""
     llm = Mock()
     llm.complete = AsyncMock()
-    llm.provider_type = Mock()
-    llm.provider_type.value = "claude"
     return llm
 
 
@@ -58,7 +56,7 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
     first_response = LLMResponse(
         content="",
         model="test-model",
-        provider=ProviderType.CLAUDE,
+        provider="anthropic",
         input_tokens=10,
         output_tokens=20,
         cost_usd=0.001,
@@ -75,7 +73,7 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
     second_response = LLMResponse(
         content="I processed 'hello' for you.",
         model="test-model",
-        provider=ProviderType.CLAUDE,
+        provider="anthropic",
         input_tokens=15,
         output_tokens=10,
         cost_usd=0.0005,
@@ -116,7 +114,7 @@ async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry)
     first_response = LLMResponse(
         content="",
         model="test-model",
-        provider=ProviderType.CLAUDE,
+        provider="anthropic",
         input_tokens=10,
         output_tokens=20,
         cost_usd=0.001,
@@ -133,7 +131,7 @@ async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry)
     second_response = LLMResponse(
         content="",
         model="test-model",
-        provider=ProviderType.CLAUDE,
+        provider="anthropic",
         input_tokens=15,
         output_tokens=0,
         cost_usd=0.0005,
@@ -167,7 +165,7 @@ async def test_dialog_without_tool_calls(memory, mock_llm, tool_registry):
     llm_response = LLMResponse(
         content="This is a regular response without tools.",
         model="test-model",
-        provider=ProviderType.CLAUDE,
+        provider="anthropic",
         input_tokens=10,
         output_tokens=20,
         cost_usd=0.001,

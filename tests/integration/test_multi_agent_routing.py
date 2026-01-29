@@ -215,13 +215,10 @@ async def test_cost_tracking_across_multiple_requests():
         pytest.skip("No Anthropic API key configured")
 
     # Create router with small budget
-    router = SentinelLLMRouter()
+    router = create_default_router()
+    # Override cost tracker with smaller budget
     tracker = CostTracker(daily_limit=0.10)  # 10 cents
     router.set_cost_tracker(tracker)
-
-    from sentinel.llm.claude import ClaudeProvider
-
-    router.register(ClaudeProvider())
 
     from sentinel.llm.base import LLMConfig
 
