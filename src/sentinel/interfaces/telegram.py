@@ -15,16 +15,13 @@ from telegram.ext import (
     filters,
 )
 
-from sentinel.agents.agentic_cli import AgenticCliAgent
 from sentinel.agents.awareness import AwarenessAgent
 from sentinel.agents.code import CodeAgent
 from sentinel.agents.dialog import DialogAgent
 from sentinel.agents.sleep import SleepAgent
-from sentinel.agents.tool_agents.weather import WeatherAgent
 from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.orchestrator import TaskPriority, get_orchestrator
-from sentinel.core.tool_agent_registry import get_tool_agent_registry
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
 from sentinel.llm.base import LLMProvider
@@ -82,9 +79,6 @@ class TelegramInterface(Interface):
         # Get tool registry for DialogAgent
         tool_registry = get_global_registry()
 
-        # Initialize tool agent registry and register specialized agents
-        tool_agent_registry = get_tool_agent_registry()
-
         # Smart LLM assignment: cheap models for sub-agents, premium for DialogAgent
         cheap_llm = self._get_cheap_llm()
         premium_llm = self._get_premium_llm()
@@ -92,28 +86,13 @@ class TelegramInterface(Interface):
         logger.info(f"Sub-agents using: {cheap_llm.provider_type.value}")
         logger.info(f"DialogAgent using: {premium_llm.provider_type.value}")
 
-        # Register WeatherAgent with cheap LLM
-        weather_agent = WeatherAgent(llm=cheap_llm)
-        tool_agent_registry.register(weather_agent)
-        logger.info("Registered WeatherAgent")
+        # Initialize all specialized agents (auto-discovered + hardcoded)
+        from sentinel.core.agent_service import initialize_agents
 
-        # Register HttpAgent (agentic CLI agent for curl/HTTP) with cheap LLM
-        from sentinel.configs.curl_agent import config as http_agent_config
-
-        http_agent = AgenticCliAgent(
-            config=http_agent_config, llm=cheap_llm, working_dir=str(settings.data_dir.parent)
+        tool_agent_registry = initialize_agents(
+            cheap_llm=cheap_llm,
+            working_dir=settings.data_dir.parent,
         )
-        tool_agent_registry.register(http_agent)
-        logger.info("Registered HttpAgent")
-
-        # Register FileAgent (agentic CLI agent) with cheap LLM
-        from sentinel.configs.file_agent import config as file_agent_config
-
-        file_agent = AgenticCliAgent(
-            config=file_agent_config, llm=cheap_llm, working_dir=str(settings.data_dir.parent)
-        )
-        tool_agent_registry.register(file_agent)
-        logger.info("Registered FileAgent")
 
         self.agent = DialogAgent(
             llm=premium_llm,
