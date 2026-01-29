@@ -49,7 +49,7 @@ class LLMProvider(ABC):
     @abstractmethod
     async def complete(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         config: LLMConfig,
         task: "TaskType | None" = None,
         tools: list[dict] | None = None,
@@ -57,8 +57,10 @@ class LLMProvider(ABC):
         """
         Generate completion from messages.
 
+        Supports both text-only and multimodal (vision) messages.
+
         Args:
-            messages: Conversation messages
+            messages: Conversation messages (can include images)
             config: LLM configuration
             task: Task type for routing
             tools: Tool definitions in provider-specific format (optional)

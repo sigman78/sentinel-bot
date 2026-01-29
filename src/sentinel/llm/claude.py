@@ -33,12 +33,15 @@ class ClaudeProvider(LLMProvider):
 
     async def complete(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         config: LLMConfig,
         task=None,
         tools: list[dict] | None = None,
     ) -> LLMResponse:
-        """Generate completion using Claude API."""
+        """Generate completion using Claude API.
+
+        Supports both text-only and multimodal (vision) messages.
+        """
         model = config.model or self.default_model
 
         # Extract system prompt from config or messages
@@ -57,8 +60,20 @@ class ClaudeProvider(LLMProvider):
         if tools:
             logger.debug(f"Claude tools: {len(tools)} available")
         for msg in api_messages:
-            preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
-            logger.debug(f"Claude [{msg['role']}]: {preview}")
+            content = msg["content"]
+            # Handle both text strings and content blocks
+            if isinstance(content, str):
+                preview = content[:100] + "..." if len(content) > 100 else content
+                logger.debug(f"Claude [{msg['role']}]: {preview}")
+            elif isinstance(content, list):
+                # Multimodal content
+                text_parts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                image_count = sum(1 for b in content if b.get("type") == "image")
+                preview = " ".join(text_parts)[:100]
+                if image_count:
+                    logger.debug(f"Claude [{msg['role']}]: [+{image_count} image(s)] {preview}")
+                else:
+                    logger.debug(f"Claude [{msg['role']}]: {preview}")
 
         try:
             # Build request parameters

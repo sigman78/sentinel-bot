@@ -1,0 +1,169 @@
+"""Integration tests for vision/multimodal support."""
+
+import base64
+from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from sentinel.agents.dialog import DialogAgent
+from sentinel.core.types import ContentType, Message
+from sentinel.llm.router import create_default_router
+from sentinel.memory.store import SQLiteMemoryStore
+
+
+@pytest.mark.integration
+async def test_vision_message_format():
+    """Test that Message.to_llm_format() handles images correctly."""
+    # Create a simple 1x1 red pixel PNG
+    red_pixel_png = (
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00'
+        b'\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8'
+        b'\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\x00\x05\x8f\x1fDC'
+        b'\x00\x00\x00\x00IEND\xaeB`\x82'
+    )
+    image_b64 = base64.b64encode(red_pixel_png).decode('utf-8')
+
+    message = Message(
+        id=str(uuid4()),
+        timestamp=datetime.now(),
+        role="user",
+        content="What color is this pixel?",
+        content_type=ContentType.IMAGE,
+        metadata={
+            "images": [{
+                "data": image_b64,
+                "media_type": "image/png"
+            }]
+        }
+    )
+
+    llm_format = message.to_llm_format()
+
+    # Should have content blocks format
+    assert llm_format["role"] == "user"
+    assert isinstance(llm_format["content"], list)
+    assert len(llm_format["content"]) == 2  # Text + image
+
+    # Check text block
+    text_block = llm_format["content"][0]
+    assert text_block["type"] == "text"
+    assert text_block["text"] == "What color is this pixel?"
+
+    # Check image block
+    image_block = llm_format["content"][1]
+    assert image_block["type"] == "image"
+    assert image_block["source"]["type"] == "base64"
+    assert image_block["source"]["media_type"] == "image/png"
+    assert image_block["source"]["data"] == image_b64
+
+
+@pytest.mark.integration
+async def test_vision_with_claude():
+    """Test vision capability with Claude API."""
+    router = create_default_router()
+    if not router.available_providers:
+        pytest.skip("No LLM providers configured")
+
+    from sentinel.llm.base import ProviderType
+
+    # Check if Claude is available (required for vision)
+    if ProviderType.CLAUDE not in router.available_providers:
+        pytest.skip("Claude provider not configured (required for vision)")
+
+    llm = router.get(ProviderType.CLAUDE)
+
+    # Create a simple 1x1 red pixel PNG
+    red_pixel_png = (
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00'
+        b'\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8'
+        b'\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\x00\x05\x8f\x1fDC'
+        b'\x00\x00\x00\x00IEND\xaeB`\x82'
+    )
+    image_b64 = base64.b64encode(red_pixel_png).decode('utf-8')
+
+    message = Message(
+        id=str(uuid4()),
+        timestamp=datetime.now(),
+        role="user",
+        content="What color is this pixel? Just say the color name.",
+        content_type=ContentType.IMAGE,
+        metadata={
+            "images": [{
+                "data": image_b64,
+                "media_type": "image/png"
+            }]
+        }
+    )
+
+    # Convert to LLM format
+    llm_messages = [message.to_llm_format()]
+
+    # Call Claude
+    from sentinel.llm.base import LLMConfig
+
+    config = LLMConfig(model=None, max_tokens=100, temperature=0.3)
+    response = await llm.complete(llm_messages, config)
+
+    # Should get a response about the color
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
+    print(f"\nClaude vision response: {response.content}")
+
+    # Should mention red or a color
+    assert any(color in response.content.lower() for color in ["red", "color", "pixel"])
+
+
+@pytest.mark.integration
+async def test_vision_through_dialog_agent():
+    """Test that DialogAgent can handle image messages."""
+    router = create_default_router()
+    if not router.available_providers:
+        pytest.skip("No LLM providers configured")
+
+    from sentinel.llm.base import ProviderType
+
+    # Use Claude if available, otherwise skip
+    if ProviderType.CLAUDE not in router.available_providers:
+        pytest.skip("Claude provider required for vision test")
+
+    llm = router.get(ProviderType.CLAUDE)
+
+    # Create in-memory database for test
+    memory = SQLiteMemoryStore(":memory:")
+    await memory.connect()
+
+    agent = DialogAgent(llm=llm, memory=memory)
+    await agent.initialize()
+
+    # Create test image
+    red_pixel_png = (
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00'
+        b'\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8'
+        b'\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\x00\x05\x8f\x1fDC'
+        b'\x00\x00\x00\x00IEND\xaeB`\x82'
+    )
+    image_b64 = base64.b64encode(red_pixel_png).decode('utf-8')
+
+    message = Message(
+        id=str(uuid4()),
+        timestamp=datetime.now(),
+        role="user",
+        content="What color is this pixel?",
+        content_type=ContentType.IMAGE,
+        metadata={
+            "images": [{
+                "data": image_b64,
+                "media_type": "image/png"
+            }]
+        }
+    )
+
+    response = await agent.process(message)
+
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
+    print(f"\nDialogAgent vision response: {response.content}")
+
+    await memory.close()

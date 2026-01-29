@@ -44,8 +44,40 @@ class Message:
     content_type: ContentType = ContentType.TEXT
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_llm_format(self) -> dict[str, str]:
-        """Convert to LLM API message format."""
+    def to_llm_format(self) -> dict[str, Any]:
+        """Convert to LLM API message format.
+
+        Supports multimodal content (text + images) for vision-capable models.
+        """
+        # Simple text message
+        if self.content_type == ContentType.TEXT and "images" not in self.metadata:
+            return {"role": self.role, "content": self.content}
+
+        # Multimodal message (text + images)
+        if "images" in self.metadata:
+            content_blocks = []
+
+            # Add text block if present
+            if self.content:
+                content_blocks.append({
+                    "type": "text",
+                    "text": self.content
+                })
+
+            # Add image blocks
+            for img in self.metadata["images"]:
+                content_blocks.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": img.get("media_type", "image/jpeg"),
+                        "data": img["data"]  # Base64 encoded
+                    }
+                })
+
+            return {"role": self.role, "content": content_blocks}
+
+        # Fallback
         return {"role": self.role, "content": self.content}
 
 

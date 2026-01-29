@@ -1,7 +1,9 @@
 """Telegram bot interface - single-user mode with persona support."""
 
 import asyncio
+import base64
 from datetime import datetime, timedelta
+from io import BytesIO
 
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
@@ -211,6 +213,9 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
         self.app.add_handler(CommandHandler("ctx", self._handle_ctx))
         self.app.add_handler(CommandHandler("kill", self._handle_kill))
+        self.app.add_handler(
+            MessageHandler(filters.PHOTO, self._handle_photo)
+        )
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
         )
@@ -855,6 +860,87 @@ Agenda Path: `{self.agent._agenda_path}`
             logger.info("Bot commands menu configured")
         except Exception as e:
             logger.warning(f"Failed to set bot commands: {e}")
+
+    async def _handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle incoming photo messages with vision support."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            logger.debug(f"Ignoring photo from non-owner: {update.effective_user.id}")
+            return
+
+        if not update.message or not update.message.photo:
+            return
+
+        if not self.agent:
+            await update.message.reply_text("Agent not initialized. Please restart.")
+            return
+
+        # Mark activity for background task scheduling
+        self._orchestrator.mark_activity()
+
+        # Get the highest resolution photo
+        photo = update.message.photo[-1]
+
+        try:
+            # Download photo
+            photo_file = await context.bot.get_file(photo.file_id)
+            photo_bytes = BytesIO()
+            await photo_file.download_to_memory(photo_bytes)
+            photo_bytes.seek(0)
+
+            # Convert to base64
+            image_data = base64.b64encode(photo_bytes.read()).decode('utf-8')
+
+            # Get caption (if any)
+            caption = update.message.caption or "What's in this image?"
+
+            logger.debug(f"USER: [Image] {caption}")
+
+            message_time = datetime.now()
+            message = Message(
+                id=str(update.message.message_id),
+                timestamp=message_time,
+                role="user",
+                content=caption,
+                content_type=ContentType.IMAGE,
+                metadata={
+                    "telegram_user_id": update.effective_user.id,
+                    "images": [{
+                        "data": image_data,
+                        "media_type": "image/jpeg",
+                        "source": "telegram"
+                    }]
+                },
+            )
+
+            await update.message.chat.send_action("typing")
+            response = await self.agent.process(message)
+
+            # Log outgoing response
+            if len(response.content) > 200:
+                logger.debug(f"BOT: {response.content[:200]}...")
+            else:
+                logger.debug(f"BOT: {response.content}")
+
+            # Reply to the image message
+            await self._safe_reply(
+                update.effective_chat.id,
+                response.content,
+                is_markdown=True,
+                reply_to=update.message.message_id,
+            )
+
+            # Update last message time after successful response
+            self._last_message_time = message_time
+
+            cost = response.metadata.get("cost_usd", 0)
+            if cost > 0:
+                logger.debug(f"Request cost: ${cost:.4f}")
+
+        except Exception as e:
+            logger.error(f"Error handling photo: {e}", exc_info=True)
+            await update.message.reply_text(
+                "Sorry, I encountered an error processing your image."
+            )
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""
