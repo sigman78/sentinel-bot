@@ -24,7 +24,6 @@ from sentinel.core.logging import get_logger
 from sentinel.core.orchestrator import TaskPriority, get_orchestrator
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
-from sentinel.llm.base import LLMProvider
 from sentinel.llm.router import create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tasks.manager import TaskManager
