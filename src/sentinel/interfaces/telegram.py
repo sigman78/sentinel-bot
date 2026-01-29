@@ -89,7 +89,7 @@ class TelegramInterface(Interface):
         logger.info("Registered WeatherAgent")
 
         # Register FileAgent (agentic CLI agent)
-        from configs.file_agent import config as file_agent_config
+        from sentinel.configs.file_agent import config as file_agent_config
 
         file_agent = AgenticCliAgent(
             config=file_agent_config, llm=llm, working_dir=str(settings.data_dir.parent)

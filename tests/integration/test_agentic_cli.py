@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-from configs.file_agent import config as file_agent_config
 from sentinel.agents.agentic_cli import AgenticCliAgent
+from sentinel.configs.file_agent import config as file_agent_config
 from sentinel.core.types import ContentType, Message
 from sentinel.llm.router import create_default_router
 
