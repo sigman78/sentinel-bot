@@ -16,6 +16,9 @@ from sentinel.tools.executor import ToolExecutor
 from sentinel.tools.parser import ToolCall
 from sentinel.tools.registry import ToolRegistry
 
+# Import for delegation context
+from sentinel.tools.builtin.delegation import set_current_user_profile
+
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
 - Key topics discussed
 - Decisions made or tasks completed
@@ -51,6 +54,8 @@ User: {user_name}
 ## Recent Memories
 {memories}
 
+{specialized_agents}
+
 {tools}
 """
 
@@ -65,6 +70,7 @@ class DialogAgent(BaseAgent):
         identity_path: Path | None = None,
         agenda_path: Path | None = None,
         tool_registry: ToolRegistry | None = None,
+        tool_agent_registry: "ToolAgentRegistry | None" = None,  # noqa: F821
     ):
         config = AgentConfig(
             agent_type=AgentType.DIALOG,
@@ -84,6 +90,9 @@ class DialogAgent(BaseAgent):
         # Tool calling support
         self._tool_registry = tool_registry
         self._tool_executor = ToolExecutor(tool_registry) if tool_registry else None
+
+        # Tool agent delegation support
+        self._tool_agent_registry = tool_agent_registry
 
     async def initialize(self) -> None:
         """Load identity, agenda, and user profile."""
@@ -174,6 +183,15 @@ class DialogAgent(BaseAgent):
         memory_text = self._format_memories(memories)
         logger.debug(f"DialogAgent memories: {len(memories)} retrieved")
 
+        # Set user profile for delegation context
+        set_current_user_profile(self._user_profile)
+
+        # Build specialized agents section
+        specialized_agents_text = ""
+        if self._tool_agent_registry:
+            capabilities = self._tool_agent_registry.get_capabilities_summary()
+            specialized_agents_text = f"\n## Specialized Agents\n{capabilities}\n"
+
         # Build system prompt (without tool descriptions - tools passed via API)
         system_prompt = self.config.system_prompt.format(
             identity=self._identity,
@@ -181,6 +199,7 @@ class DialogAgent(BaseAgent):
             user_context=self._user_profile.to_prompt_context(),
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
+            specialized_agents=specialized_agents_text,
             tools="",  # Empty - tools passed via native API
         )
         logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")

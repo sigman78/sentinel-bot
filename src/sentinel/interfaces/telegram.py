@@ -17,9 +17,11 @@ from sentinel.agents.awareness import AwarenessAgent
 from sentinel.agents.code import CodeAgent
 from sentinel.agents.dialog import DialogAgent
 from sentinel.agents.sleep import SleepAgent
+from sentinel.agents.tool_agents.weather import WeatherAgent
 from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.orchestrator import TaskPriority, get_orchestrator
+from sentinel.core.tool_agent_registry import get_tool_agent_registry
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
 from sentinel.llm.router import create_default_router
@@ -76,8 +78,21 @@ class TelegramInterface(Interface):
         # Get tool registry for DialogAgent
         tool_registry = get_global_registry()
 
+        # Initialize tool agent registry and register specialized agents
+        tool_agent_registry = get_tool_agent_registry()
         llm = list(self._router._providers.values())[0]
-        self.agent = DialogAgent(llm=llm, memory=self.memory, tool_registry=tool_registry)
+
+        # Register WeatherAgent
+        weather_agent = WeatherAgent(llm=llm)
+        tool_agent_registry.register(weather_agent)
+        logger.info("Registered WeatherAgent")
+
+        self.agent = DialogAgent(
+            llm=llm,
+            memory=self.memory,
+            tool_registry=tool_registry,
+            tool_agent_registry=tool_agent_registry,
+        )
         await self.agent.initialize()
 
         # Initialize background agents
