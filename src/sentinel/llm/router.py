@@ -158,6 +158,14 @@ class SentinelLLMRouter:
         response = await self.complete(messages, config, task=task)
         return response.content
 
+    async def close_all(self) -> None:
+        """Close all connections (no-op for LiteLLM SDK usage).
+
+        LiteLLM SDK doesn't require explicit cleanup when used without proxy.
+        This method exists for backward compatibility with old router interface.
+        """
+        logger.debug("Router cleanup (no-op for LiteLLM SDK)")
+
 
 def create_default_router() -> SentinelLLMRouter:
     """Create router with LiteLLM adapter and cost tracking."""

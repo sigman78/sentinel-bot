@@ -210,16 +210,11 @@ class DialogAgent(BaseAgent):
             llm_messages.append(msg.to_llm_format())
         logger.debug(f"DialogAgent conversation: {len(self.context.conversation)} messages")
 
-        # Prepare tools for native API
+        # Prepare tools for LiteLLM (uses OpenAI format, converts automatically)
         tools = None
         if self._tool_registry:
-            # Convert to provider-specific format
-            if self.llm.provider_type.value == "claude":
-                tools = self._tool_registry.to_anthropic_tools()
-            else:
-                # OpenRouter, local, and others use OpenAI format
-                tools = self._tool_registry.to_openai_tools()
-            logger.debug(f"Prepared {len(tools)} tools for provider: {self.llm.provider_type.value}")
+            tools = self._tool_registry.to_openai_tools()
+            logger.debug(f"Prepared {len(tools)} tools for LiteLLM")
 
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
         response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT, tools=tools)
