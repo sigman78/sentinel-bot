@@ -100,6 +100,57 @@ class LiteLLMAdapter:
     def __init__(self, registry: ModelRegistry):
         self.registry = registry
 
+    def _convert_to_openai_format(self, messages: list[dict]) -> list[dict]:
+        """Convert messages to OpenAI format, handling Claude-style image blocks.
+
+        Claude format:
+        {"type": "image", "source": {"type": "base64", "data": "...", "media_type": "..."}}
+
+        OpenAI format:
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+        """
+        converted = []
+        for msg in messages:
+            content = msg["content"]
+
+            # String content - pass through
+            if isinstance(content, str):
+                converted.append(msg)
+                continue
+
+            # List content - may have image blocks
+            if isinstance(content, list):
+                new_content = []
+                for block in content:
+                    if block.get("type") == "text":
+                        # Text block - pass through
+                        new_content.append(block)
+                    elif block.get("type") == "image":
+                        # Claude-style image - convert to OpenAI format
+                        source = block.get("source", {})
+                        if source.get("type") == "base64":
+                            media_type = source.get("media_type", "image/jpeg")
+                            data = source.get("data", "")
+                            # Create data URL
+                            data_url = f"data:{media_type};base64,{data}"
+                            new_content.append({
+                                "type": "image_url",
+                                "image_url": {"url": data_url}
+                            })
+                    elif block.get("type") == "image_url":
+                        # Already OpenAI format - pass through
+                        new_content.append(block)
+
+                converted.append({
+                    "role": msg["role"],
+                    "content": new_content
+                })
+            else:
+                # Unknown format - pass through
+                converted.append(msg)
+
+        return converted
+
     async def complete(
         self,
         model_id: str,
@@ -126,6 +177,9 @@ class LiteLLMAdapter:
             raise ValueError(
                 f"Model {model_id} not available (missing credentials/config)"
             )
+
+        # Convert any Claude-style image blocks to OpenAI format
+        messages = self._convert_to_openai_format(messages)
 
         # Build LiteLLM params
         params = {
