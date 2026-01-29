@@ -13,6 +13,7 @@ Flags:
 
 import asyncio
 import logging
+import signal
 import sys
 from datetime import datetime
 from uuid import uuid4
@@ -74,15 +75,32 @@ async def _run_telegram(settings: Settings) -> int:
     from sentinel.interfaces.telegram import TelegramInterface
 
     interface = TelegramInterface()
+    logger = get_logger("cli.telegram")
+
+    # Set up signal handlers for graceful shutdown
+    def handle_shutdown_signal(signum, frame):
+        """Handle shutdown signals."""
+        sig_name = signal.Signals(signum).name
+        logger.info(f"Received {sig_name}, initiating graceful shutdown")
+        interface._shutdown_event.set()
+
+    # Register signal handlers
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+
     try:
         await interface.start()
-        print("Telegram bot running. Press Ctrl+C to stop.")
-        # Keep running until interrupted
-        while True:
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        print("\nShutting down...")
+        print("Telegram bot running. Press Ctrl+C to stop or use /kill command.")
+
+        # Keep running until shutdown signal received
+        while not interface._shutdown_event.is_set():
+            await asyncio.sleep(0.5)
+
+        logger.info("Shutdown signal received, stopping bot")
+        print("\nShutting down gracefully...")
+
     except Exception as e:
+        logger.error(f"Error running bot: {e}", exc_info=True)
         print(f"Error: {e}")
         return 1
     finally:
@@ -159,11 +177,19 @@ async def _chat_loop(settings: Settings) -> int:
                 print(f"Error: {e}\n")
 
     except KeyboardInterrupt:
-        pass
+        print("\n\nShutting down...")
     finally:
+        # Summarize session before closing if there's conversation history
+        if agent and len(agent.context.conversation) >= 2:
+            try:
+                print("Saving conversation summary...")
+                await agent.summarize_session()
+            except Exception as e:
+                print(f"Warning: Failed to save summary: {e}")
+
         await memory.close()
 
-    print("\nGoodbye!")
+    print("Goodbye!")
     return 0
 
 

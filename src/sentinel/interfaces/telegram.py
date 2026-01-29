@@ -1,5 +1,6 @@
 """Telegram bot interface - single-user mode with persona support."""
 
+import asyncio
 from datetime import datetime, timedelta
 
 from telegram import BotCommand, Update
@@ -49,6 +50,7 @@ class TelegramInterface(Interface):
         self._task_manager: TaskManager | None = None
         self._orchestrator = get_orchestrator()
         self._last_message_time: datetime | None = None
+        self._shutdown_event = asyncio.Event()
 
     async def _init_components(self) -> None:
         """Initialize agent and memory store."""
@@ -132,6 +134,7 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("tasks", self._handle_tasks))
         self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
         self.app.add_handler(CommandHandler("ctx", self._handle_ctx))
+        self.app.add_handler(CommandHandler("kill", self._handle_kill))
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
         )
@@ -147,23 +150,39 @@ class TelegramInterface(Interface):
 
     async def stop(self) -> None:
         """Stop Telegram bot, summarizing session first."""
+        logger.info("Stopping Telegram bot gracefully")
+
         # Summarize conversation before shutdown
         if self.agent and len(self.agent.context.conversation) >= 2:
             try:
+                logger.info("Saving conversation summary")
                 await self.agent.summarize_session()
+                logger.info("Conversation summary saved")
             except Exception as e:
                 logger.warning(f"Failed to summarize on shutdown: {e}")
 
+        # Stop orchestrator and background agents
+        logger.info("Stopping orchestrator and background agents")
         await self._orchestrator.stop()
+
+        # Close LLM router connections
         if self._router:
+            logger.info("Closing LLM router connections")
             await self._router.close_all()
+
+        # Stop Telegram application
         if self.app:
+            logger.info("Stopping Telegram application")
             await self.app.updater.stop()
             await self.app.stop()
             await self.app.shutdown()
+
+        # Close memory store
         if self.memory:
+            logger.info("Closing memory store")
             await self.memory.close()
-        logger.info("Telegram bot stopped")
+
+        logger.info("Telegram bot stopped gracefully")
 
     async def receive(self) -> InboundMessage:
         raise NotImplementedError("Telegram uses callback-based message handling")
@@ -315,6 +334,7 @@ class TelegramInterface(Interface):
 /tasks - List active scheduled tasks
 /cancel <task_id> - Cancel a task
 /ctx - Show debug context
+/kill - Gracefully shutdown the bot
 /help - This message
 
 Just send a message to chat with me."""
@@ -725,6 +745,17 @@ Agenda Path: `{self.agent._agenda_path}`
 
         await self._safe_reply(update.effective_chat.id, context_info)
 
+    async def _handle_kill(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /kill command - gracefully shutdown the bot."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        logger.info("Received /kill command, initiating graceful shutdown")
+        await update.message.reply_text("Shutting down gracefully... Saving memories and disconnecting.")
+
+        # Signal the shutdown event
+        self._shutdown_event.set()
+
     async def _setup_bot_commands(self) -> None:
         """Set up bot command menu for Telegram."""
         commands = [
@@ -740,6 +771,7 @@ Agenda Path: `{self.agent._agenda_path}`
             BotCommand("cancel", "Cancel task by ID"),
             BotCommand("code", "Execute code in workspace"),
             BotCommand("ctx", "Show debug context"),
+            BotCommand("kill", "Gracefully shutdown the bot"),
         ]
 
         try:
