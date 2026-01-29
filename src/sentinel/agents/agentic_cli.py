@@ -229,16 +229,18 @@ You MUST respond with valid JSON in this exact format:
 
 ## Guidelines
 
-1. Use only the CLI tools advertised by the agent. Fail if the job cannot be accomplished with the provided tools or if any required tool is unavailable.
-2. Execute ONE command at a time based on current state. 
-3. You may pipe CLI command output into platform's common filter, trim, sort, grep commands to keep output relevant and lean.
-4. Be aware of environment/shell you are operating on - windows, linux, wsl, freebsd, etc.
-5. Use full CLI syntax - the command will be executed in a shell
-6. Analyze stdout/stderr from previous commands before next step
-7. After errors, try 1-2 alternative approaches, then give up
-8. "Not found" or "no results" IS a valid answer - call done with the negative result
-9. When goal is accomplished OR cannot be completed, set action.type="done"
-10. Be concise in results - summarize key outcomes
+ - Use only the CLI tools advertised by the agent. Fail if the job cannot be accomplished with the provided tools or if any required tool is unavailable.
+ - Execute ONE command at a time based on current state. 
+ - You may pipe CLI command output into platform's common filter, trim, sort, grep commands to keep output relevant and lean.
+ - Add 'non interactive' options for CLI commands, if necessary, but be mindful about dangerous operations.
+ - Be aware of environment/shell you are operating on - windows, linux, wsl, freebsd, etc.
+ - Use full CLI syntax - the command will be executed in a shell
+ - Analyze stdout/stderr from previous commands before next step
+ - After errors, try 1-2 alternative approaches, then give up
+ - "Not found" or "no results" IS a valid answer - call done with the negative result
+ - When goal is accomplished OR cannot be completed, set action.type="done"
+ - Be concise in results - summarize key outcomes
+
 
 IMPORTANT: If you've tried 2-3 different approaches and all failed with "not found" or similar,
 the answer is simply "nothing found" - call done with that result. Don't keep retrying endlessly.
