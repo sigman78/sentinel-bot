@@ -97,6 +97,15 @@ class TelegramInterface(Interface):
         tool_agent_registry.register(weather_agent)
         logger.info("Registered WeatherAgent")
 
+        # Register HttpAgent (agentic CLI agent for curl/HTTP) with cheap LLM
+        from sentinel.configs.curl_agent import config as http_agent_config
+
+        http_agent = AgenticCliAgent(
+            config=http_agent_config, llm=cheap_llm, working_dir=str(settings.data_dir.parent)
+        )
+        tool_agent_registry.register(http_agent)
+        logger.info("Registered HttpAgent")
+
         # Register FileAgent (agentic CLI agent) with cheap LLM
         from sentinel.configs.file_agent import config as file_agent_config
 
