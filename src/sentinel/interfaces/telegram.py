@@ -125,6 +125,7 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("status", self._handle_status))
         self.app.add_handler(CommandHandler("clear", self._handle_clear))
         self.app.add_handler(CommandHandler("agenda", self._handle_agenda))
+        self.app.add_handler(CommandHandler("memory", self._handle_memory))
         self.app.add_handler(CommandHandler("code", self._handle_code))
         self.app.add_handler(CommandHandler("remind", self._handle_remind))
         self.app.add_handler(CommandHandler("schedule", self._handle_schedule))
@@ -307,6 +308,7 @@ class TelegramInterface(Interface):
 /status - Show agent status
 /clear - Clear conversation history
 /agenda - Show current agenda
+/memory - Show memory system overview
 /code <task> - Generate and execute Python code
 /remind <time> <message> - Set one-time reminder (e.g., /remind 5m call mom)
 /schedule <pattern> <task> - Schedule recurring task (e.g., /schedule daily 9am check news)
@@ -364,6 +366,133 @@ Conversation: {conv_len} messages"""
             await self._safe_reply(update.effective_chat.id, agenda)
         else:
             await update.message.reply_text("No agenda set.")
+
+    async def _handle_memory(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /memory command - show memory system overview."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+
+        if not self.memory:
+            await update.message.reply_text("Memory not initialized.")
+            return
+
+        try:
+            # Gather memory statistics
+            from datetime import datetime, timedelta
+
+            # 1. Get memory counts
+            episodic_count = 0
+            semantic_count = 0
+
+            # Count episodic memories
+            try:
+                async with self.memory.conn.execute(
+                    "SELECT COUNT(*) FROM episodes"
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    episodic_count = row[0] if row else 0
+            except Exception:
+                pass
+
+            # Count semantic memories (facts)
+            try:
+                async with self.memory.conn.execute(
+                    "SELECT COUNT(*) FROM facts WHERE superseded_by IS NULL"
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    semantic_count = row[0] if row else 0
+            except Exception:
+                pass
+
+            # 2. Get recent memories (last 24 hours)
+            recent_memories = []
+            try:
+                yesterday = datetime.now() - timedelta(days=1)
+                async with self.memory.conn.execute(
+                    "SELECT summary, timestamp FROM episodes WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
+                    (yesterday,)
+                ) as cursor:
+                    async for row in cursor:
+                        recent_memories.append({
+                            "content": row[0],
+                            "timestamp": row[1]
+                        })
+            except Exception:
+                pass
+
+            # 3. Get user profile
+            profile_summary = "Not set"
+            if hasattr(self.memory, "get_profile"):
+                try:
+                    profile = await self.memory.get_profile()
+                    if profile:
+                        profile_summary = f"{profile.name}"
+                        if profile.timezone:
+                            profile_summary += f" ({profile.timezone})"
+                        if profile.interests:
+                            profile_summary += f"\nInterests: {', '.join(profile.interests[:3])}"
+                            if len(profile.interests) > 3:
+                                profile_summary += f" +{len(profile.interests) - 3} more"
+                        if profile.preferences:
+                            pref_count = len(profile.preferences)
+                            profile_summary += f"\nPreferences: {pref_count} set"
+                except Exception:
+                    pass
+
+            # 4. Get agenda summary
+            agenda_summary = "Empty"
+            if self.agent and self.agent._agenda:
+                lines = self.agent._agenda.split("\n")
+                # Get first non-empty line as summary
+                for line in lines:
+                    if line.strip() and not line.startswith("#"):
+                        agenda_summary = line.strip()[:100]
+                        break
+                if len(lines) > 5:
+                    agenda_summary += f"\n({len(lines)} lines total)"
+
+            # 5. Working memory (conversation)
+            working_memory_size = 0
+            if self.agent:
+                working_memory_size = len(self.agent.context.conversation)
+
+            # Build response
+            report = f"""*Memory System Overview*
+
+📊 *Memory Hierarchy*
+• Working: {working_memory_size} messages (current session)
+• Episodic: {episodic_count} memories (conversations)
+• Semantic: {semantic_count} facts (knowledge)
+
+👤 *User Profile*
+{profile_summary}
+
+📝 *Agenda*
+{agenda_summary}
+
+🕒 *Recent Activity* (last 24h)
+"""
+
+            if recent_memories:
+                for mem in recent_memories[:3]:
+                    # Format timestamp
+                    ts = mem["timestamp"]
+                    if isinstance(ts, str):
+                        ts = datetime.fromisoformat(ts)
+                    time_str = ts.strftime("%H:%M") if isinstance(ts, datetime) else "?"
+                    # Truncate content
+                    content = mem["content"][:80]
+                    if len(mem["content"]) > 80:
+                        content += "..."
+                    report += f"• {time_str}: {content}\n"
+            else:
+                report += "• No recent memories\n"
+
+            await self._safe_reply(update.effective_chat.id, report)
+
+        except Exception as e:
+            logger.error(f"Error in /memory command: {e}", exc_info=True)
+            await update.message.reply_text(f"Error gathering memory stats: {str(e)[:100]}")
 
     async def _handle_code(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /code command - generate and execute Python code."""
@@ -587,7 +716,7 @@ Showing: Last {min(10, conv_count)} messages
 *Agent State:*
 State: `{self.agent.state.value}`
 Max History: {self.agent._max_history}
-User Name: {self.agent._user_name}
+User Profile: {self.agent._user_profile.name}
 
 *Memory Info:*
 Identity Path: `{self.agent._identity_path}`
@@ -604,6 +733,7 @@ Agenda Path: `{self.agent._agenda_path}`
             BotCommand("status", "Show bot status and info"),
             BotCommand("clear", "Clear conversation and save summary"),
             BotCommand("agenda", "Show current agenda"),
+            BotCommand("memory", "Show memory system overview"),
             BotCommand("remind", "Set reminder (e.g. /remind 5m call mom)"),
             BotCommand("schedule", "Schedule recurring task"),
             BotCommand("tasks", "List scheduled tasks"),
