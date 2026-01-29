@@ -15,13 +15,27 @@ Support for processing images alongside text in conversations.
 
 Send an image to the bot with or without a caption:
 
+**With explicit caption:**
 ```
-[Send photo without caption]
-→ Bot: "This image shows a sunset over mountains..."
+[Send photo with caption "What color is this?"]
+→ Bot: "That's a deep blue color, similar to..."
+```
 
-[Send photo with caption "What's in this image?"]
-→ Bot: "This image contains..."
+**Without caption (context-aware):**
 ```
+User: "I'm trying to debug this error"
+[User sends screenshot]
+→ Bot: "Looking at your screenshot, the error is on line 23..."
+
+User: "What do you think?"
+[User sends meme]
+→ Bot: "Ha! That's a classic developer meme about..."
+
+[User sends random photo]
+→ Bot: "Nice sunset photo! The colors are beautiful..."
+```
+
+The bot analyzes recent conversation to understand why the image was sent and reacts naturally rather than just describing it.
 
 ### Agent Delegation
 
@@ -36,6 +50,41 @@ User sends photo: "Analyze this diagram"
   → DialogAgent composes final response
 → User gets analysis
 ```
+
+## Context-Aware Image Handling
+
+When you send an image without a caption, the bot doesn't just ask "what's in this image?"
+Instead, it analyzes the conversation context and reacts naturally:
+
+### No Recent Conversation
+```
+Prompt: "The user sent me an image. I should look at it and react naturally.
+Is this a meme, screenshot, photo, diagram, or something else?
+Respond in a conversational way rather than just describing it."
+```
+
+### After a Question
+```
+User: "How do I fix this React error?"
+[Sends screenshot]
+
+Prompt: "The user just sent me an image. They recently asked: 'How do I fix this React error?'
+This image might be related to that question. Is this answering their question?
+Sharing an example? React appropriately based on the image and our conversation."
+```
+
+### During Conversation
+```
+User: "I'm working on a new design"
+[Sends mockup]
+
+Prompt: "The user sent me an image. We were just discussing: 'I'm working on a new design'.
+This might be related, or it could be a new topic. I should look at the image and react
+naturally - is it related to what we talked about? Respond conversationally."
+```
+
+This makes interactions feel more human - the bot understands context and responds appropriately
+instead of robotically describing every image.
 
 ## Architecture
 

@@ -861,6 +861,61 @@ Agenda Path: `{self.agent._agenda_path}`
         except Exception as e:
             logger.warning(f"Failed to set bot commands: {e}")
 
+    def _build_image_context_prompt(self) -> str:
+        """Build context-aware prompt for images sent without caption.
+
+        Analyzes recent conversation to understand why the image might have been sent
+        and creates a natural prompt for the agent to react appropriately.
+        """
+        if not self.agent or not self.agent.context.conversation:
+            # No conversation context - generic but natural
+            return (
+                "The user sent me an image. I should look at it and react naturally. "
+                "Is this a meme, screenshot, photo, diagram, or something else? "
+                "Does it seem to be related to something we discussed? "
+                "I should respond in a conversational way - comment, ask questions, "
+                "or relate it to our conversation rather than just describing it."
+            )
+
+        # Get recent conversation context (last 3 messages)
+        recent = self.agent.context.conversation[-3:]
+        has_recent_question = any(
+            "?" in msg.content and msg.role == "user"
+            for msg in recent
+        )
+        last_user_message = next(
+            (msg.content for msg in reversed(recent) if msg.role == "user"),
+            None
+        )
+
+        if has_recent_question and last_user_message:
+            # Might be answering a recent question with an image
+            return (
+                f"The user just sent me an image. Looking at our recent conversation, "
+                f"they asked: '{last_user_message[:100]}...'. "
+                f"This image might be related to that question or topic. "
+                f"I should analyze the image in that context and respond naturally. "
+                f"Is this answering their question? Sharing an example? A meme response? "
+                f"React appropriately based on what the image shows and our conversation."
+            )
+        elif last_user_message:
+            # Recent conversation but no question
+            return (
+                f"The user sent me an image. We were just discussing: '{last_user_message[:100]}...'. "
+                f"This might be related, or it could be a new topic. "
+                f"I should look at the image and react naturally - is it funny? Interesting? "
+                f"Does it relate to what we talked about? "
+                f"Respond in a conversational way rather than just describing it."
+            )
+        else:
+            # Conversation exists but no clear recent context
+            return (
+                "The user sent me an image. I should look at it and react like a human would. "
+                "Is this a meme I should comment on? A screenshot they want help with? "
+                "A photo they want to share? A diagram to analyze? "
+                "React naturally and conversationally based on what I see."
+            )
+
     async def _handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming photo messages with vision support."""
         if not update.effective_user or not self._is_owner(update.effective_user.id):
@@ -890,8 +945,13 @@ Agenda Path: `{self.agent._agenda_path}`
             # Convert to base64
             image_data = base64.b64encode(photo_bytes.read()).decode('utf-8')
 
-            # Get caption (if any)
-            caption = update.message.caption or "What's in this image?"
+            # Build contextual prompt based on caption and conversation context
+            if update.message.caption:
+                # User provided explicit caption/question
+                caption = update.message.caption
+            else:
+                # No caption - build context-aware prompt
+                caption = self._build_image_context_prompt()
 
             logger.debug(f"USER: [Image] {caption}")
 
