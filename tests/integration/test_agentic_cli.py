@@ -20,7 +20,7 @@ async def test_file_agent_no_files_found():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[-1]
+    llm = router
 
     # Create agent with current directory as working dir (root has no .py files)
     agent = AgenticCliAgent(
@@ -56,7 +56,7 @@ async def test_file_agent_finds_files():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[-1]
+    llm = router
 
     # Create agent with src directory as working dir (has .py files)
     src_dir = Path.cwd() / "src"
@@ -94,7 +94,7 @@ async def test_file_agent_read_file():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[-1]
+    llm = router
 
     # Create a test file
     test_file = Path("test_temp_file.txt")
@@ -134,7 +134,7 @@ async def test_file_agent_error_handling():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[-1]
+    llm = router
     agent = AgenticCliAgent(
         config=file_agent_config, llm=llm, working_dir=str(Path.cwd())
     )
@@ -170,7 +170,7 @@ async def test_file_agent_safety_limits():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[-1]
+    llm = router
 
     # Create config with very low limits
     strict_config = AgenticCliConfig(

@@ -50,7 +50,7 @@ async def test_dialog_agent_basic(memory_store, router):
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 
@@ -72,7 +72,7 @@ async def test_dialog_agent_memory_persistence(memory_store, router):
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 
@@ -94,7 +94,7 @@ async def test_dialog_agent_conversation_context(memory_store, router):
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 
@@ -122,7 +122,7 @@ async def test_dialog_agent_user_profile(memory_store, router):
     await memory_store.set_core("user_name", "Alice")
     await memory_store.set_core("user_context", "Prefers brief responses")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 
@@ -139,7 +139,7 @@ async def test_full_pipeline(memory_store, router):
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = DialogAgent(llm=llm, memory=memory_store)
     await agent.initialize()
 

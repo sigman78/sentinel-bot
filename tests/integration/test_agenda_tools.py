@@ -49,10 +49,10 @@ This document used to track long and short term plans, priorities, context
     await memory.connect()
 
     router = create_default_router()
-    if not router._providers:
+    if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     tool_registry = get_global_registry()
 
     agent = DialogAgent(llm=llm, memory=memory, tool_registry=tool_registry)

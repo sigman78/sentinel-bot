@@ -14,7 +14,7 @@ async def test_weather_agent_basic():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = WeatherAgent(llm=llm)
 
     # Test with explicit location
@@ -33,7 +33,7 @@ async def test_tool_agent_registry():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     registry = ToolAgentRegistry()
 
     # Register WeatherAgent
@@ -66,7 +66,7 @@ async def test_weather_agent_with_user_location():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = WeatherAgent(llm=llm)
 
     # Mock user profile with location
@@ -96,7 +96,7 @@ async def test_weather_agent_error_handling():
     if not router.available_providers:
         pytest.skip("No LLM providers configured")
 
-    llm = list(router._providers.values())[0]
+    llm = router
     agent = WeatherAgent(llm=llm)
 
     # Test with invalid location using process() which catches exceptions
