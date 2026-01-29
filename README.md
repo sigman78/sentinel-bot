@@ -85,6 +85,7 @@ uv run sentinel health
 | `/status` | Agent status, providers, memory |
 | `/clear` | Summarize and clear conversation |
 | `/agenda` | Show current agenda |
+| `/memory` | Show memory system overview (hierarchy, profile, recent activity) |
 | `/remind <delay> <message>` | Set one-time reminder (e.g., "5m call mom") |
 | `/schedule <pattern> <message>` | Create recurring task (e.g., "daily 9am check email") |
 | `/tasks` | List all scheduled tasks |

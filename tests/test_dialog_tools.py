@@ -101,7 +101,7 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
 
     # Check response
     assert response.content == "I processed 'hello' for you."
-    assert response.metadata.get("tool_calls") == 1
+    assert response.metadata.get("tool_call_count") == 1
     assert response.metadata.get("tool_results") == [True]
 
     # Check LLM was called twice

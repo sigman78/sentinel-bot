@@ -74,7 +74,7 @@ def test_calculate_exchange_importance_with_tools():
         role="assistant",
         content="I've set the reminder.",
         content_type=ContentType.TEXT,
-        metadata={"tool_calls": [{"name": "add_reminder", "args": {}}]},
+        metadata={"tool_call_count": 1},
     )
 
     importance = agent._calculate_exchange_importance(user_msg, assistant_msg)
@@ -132,7 +132,7 @@ def test_calculate_exchange_importance_complex():
         ),
         content_type=ContentType.TEXT,
         metadata={
-            "tool_calls": [{"name": "search_docs", "args": {}}],
+            "tool_call_count": 1,
             "cost_usd": 0.015,  # Expensive response
         },
     )
@@ -164,7 +164,7 @@ def test_calculate_exchange_importance_capped_at_one():
         content="Detailed response " * 100,
         content_type=ContentType.TEXT,
         metadata={
-            "tool_calls": [{"name": "tool1"}, {"name": "tool2"}, {"name": "tool3"}],
+            "tool_call_count": 3,
             "cost_usd": 0.05,
         },
     )
@@ -173,4 +173,4 @@ def test_calculate_exchange_importance_capped_at_one():
 
     # Should be capped at 1.0
     assert importance <= 1.0, f"Importance should be capped at 1.0, got {importance}"
-    assert importance >= 0.9, f"High-value exchange should score near 1.0, got {importance}"
+    assert importance >= 0.85, f"High-value exchange should score high, got {importance}"

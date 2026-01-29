@@ -143,7 +143,7 @@ class DialogAgent(BaseAgent):
     async def _load_user_profile(self) -> None:
         """Load user profile from memory store.
 
-        Uses structured profile if available, otherwise migrates from legacy keys.
+        Uses structured profile if available, otherwise creates and saves a default profile.
         """
         if not hasattr(self.memory, "get_profile"):
             return
@@ -153,8 +153,10 @@ class DialogAgent(BaseAgent):
             self._user_profile = profile
             logger.debug(f"Loaded user profile: {profile.name}")
         else:
-            # No profile yet - keep defaults
-            logger.debug("No user profile found, using defaults")
+            # No profile yet - create and save default
+            self._user_profile = UserProfile(name="User")
+            await self.memory.update_profile(self._user_profile)
+            logger.info("Created default user profile")
 
     async def process(self, message: Message) -> Message:
         """Process user message and generate response."""
@@ -270,7 +272,7 @@ class DialogAgent(BaseAgent):
                     "model": final_response.model,
                     "tokens": final_response.input_tokens + final_response.output_tokens,
                     "cost_usd": final_response.cost_usd,
-                    "tool_calls": len(tool_calls),
+                    "tool_call_count": len(tool_calls),
                     "tool_results": [r.success for r in results],
                 },
             )
@@ -329,9 +331,9 @@ class DialogAgent(BaseAgent):
 
         # Factor 2: Tool usage (up to +0.3)
         if assistant_msg.metadata:
-            tool_calls = assistant_msg.metadata.get("tool_calls", [])
-            if tool_calls:
-                score += min(0.3, len(tool_calls) * 0.1)
+            tool_call_count = assistant_msg.metadata.get("tool_call_count", 0)
+            if tool_call_count > 0:
+                score += min(0.3, tool_call_count * 0.1)
 
         # Factor 3: Keywords in user message (up to +0.2)
         user_lower = user_msg.content.lower()
