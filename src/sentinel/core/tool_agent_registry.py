@@ -1,9 +1,9 @@
 """Tool agent registry - manages pool of specialized agents."""
 
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
-from sentinel.agents.tool_agent import ToolAgent
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ContentType, Message
 
@@ -13,34 +13,47 @@ logger = get_logger("core.tool_agent_registry")
 class ToolAgentRegistry:
     """Registry for tool agents initialized at startup.
 
-    Manages a pool of specialized tool agents that can be delegated tasks
-    by higher-level agents (like DialogAgent).
+    Manages a pool of specialized agents (both stateless ToolAgents and
+    stateful AgenticCliAgents) that can be delegated tasks by higher-level
+    agents (like DialogAgent).
+
+    Registered agents must have:
+    - agent_name: str
+    - get_capability_description() -> str
+    - process(message: Message) -> Message
     """
 
     def __init__(self):
-        self._agents: dict[str, ToolAgent] = {}
+        self._agents: dict[str, Any] = {}
 
-    def register(self, agent: ToolAgent) -> None:
-        """Register a tool agent.
+    def register(self, agent: Any) -> None:
+        """Register a specialized agent.
 
         Args:
-            agent: Tool agent instance to register
+            agent: Agent instance (ToolAgent, AgenticCliAgent, etc.)
         """
+        if not hasattr(agent, "agent_name"):
+            raise ValueError("Agent must have 'agent_name' attribute")
+        if not hasattr(agent, "get_capability_description"):
+            raise ValueError("Agent must have 'get_capability_description' method")
+        if not hasattr(agent, "process"):
+            raise ValueError("Agent must have 'process' method")
+
         agent_name = agent.agent_name
         if agent_name in self._agents:
-            logger.warning(f"Tool agent {agent_name} already registered, replacing")
+            logger.warning(f"Agent {agent_name} already registered, replacing")
 
         self._agents[agent_name] = agent
-        logger.info(f"Registered tool agent: {agent_name}")
+        logger.info(f"Registered agent: {agent_name}")
 
-    def get_agent(self, agent_name: str) -> ToolAgent | None:
-        """Get tool agent by name.
+    def get_agent(self, agent_name: str) -> Any:
+        """Get agent by name.
 
         Args:
             agent_name: Name of the agent to retrieve
 
         Returns:
-            ToolAgent instance or None if not found
+            Agent instance or None if not found
         """
         return self._agents.get(agent_name)
 

@@ -13,6 +13,7 @@ from telegram.ext import (
     filters,
 )
 
+from sentinel.agents.agentic_cli import AgenticCliAgent
 from sentinel.agents.awareness import AwarenessAgent
 from sentinel.agents.code import CodeAgent
 from sentinel.agents.dialog import DialogAgent
@@ -86,6 +87,15 @@ class TelegramInterface(Interface):
         weather_agent = WeatherAgent(llm=llm)
         tool_agent_registry.register(weather_agent)
         logger.info("Registered WeatherAgent")
+
+        # Register FileAgent (agentic CLI agent)
+        from configs.file_agent import config as file_agent_config
+
+        file_agent = AgenticCliAgent(
+            config=file_agent_config, llm=llm, working_dir=str(settings.data_dir.parent)
+        )
+        tool_agent_registry.register(file_agent)
+        logger.info("Registered FileAgent")
 
         self.agent = DialogAgent(
             llm=llm,
