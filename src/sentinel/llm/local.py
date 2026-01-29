@@ -31,17 +31,24 @@ class LocalProvider(LLMProvider):
 
     async def complete(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict],
         config: LLMConfig,
         task=None,
         tools: list[dict] | None = None,
     ) -> LLMResponse:
-        """Generate completion via local OpenAI-compatible API."""
+        """Generate completion via local OpenAI-compatible API.
+
+        Supports both text-only and multimodal (vision) messages.
+        Vision support depends on the local model (LLaVA, Llama 3.2 Vision, etc.)
+        """
         model = config.model or self.default_model
+
+        # Convert messages to OpenAI format (may have Claude-style image blocks)
+        openai_messages = self._convert_to_openai_format(messages)
 
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": openai_messages,
             "max_tokens": config.max_tokens,
             "temperature": config.temperature,
             "stream": False,
@@ -55,9 +62,21 @@ class LocalProvider(LLMProvider):
         logger.debug(f"Local request: model={model}, url={self.base_url}")
         if tools:
             logger.debug(f"Local tools: {len(tools)} available")
-        for msg in messages:
-            preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
-            logger.debug(f"Local [{msg['role']}]: {preview}")
+        for msg in openai_messages:
+            content = msg["content"]
+            # Handle both text strings and content blocks (vision)
+            if isinstance(content, str):
+                preview = content[:100] + "..." if len(content) > 100 else content
+                logger.debug(f"Local [{msg['role']}]: {preview}")
+            elif isinstance(content, list):
+                # Multimodal content (text + images)
+                text_parts = [b.get("text", "") for b in content if b.get("type") == "text"]
+                image_count = sum(1 for b in content if b.get("type") == "image_url")
+                preview = " ".join(text_parts)[:100]
+                if image_count:
+                    logger.debug(f"Local [{msg['role']}]: [+{image_count} image(s)] {preview}")
+                else:
+                    logger.debug(f"Local [{msg['role']}]: {preview}")
 
         try:
             response = await self.client.post("/chat/completions", json=payload)
@@ -131,6 +150,57 @@ class LocalProvider(LLMProvider):
         except Exception:
             pass
         return []
+
+    def _convert_to_openai_format(self, messages: list[dict]) -> list[dict]:
+        """Convert messages to OpenAI format, handling Claude-style image blocks.
+
+        Claude format:
+        {"type": "image", "source": {"type": "base64", "data": "...", "media_type": "..."}}
+
+        OpenAI format:
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+        """
+        converted = []
+        for msg in messages:
+            content = msg["content"]
+
+            # String content - pass through
+            if isinstance(content, str):
+                converted.append(msg)
+                continue
+
+            # List content - may have image blocks
+            if isinstance(content, list):
+                new_content = []
+                for block in content:
+                    if block.get("type") == "text":
+                        # Text block - pass through
+                        new_content.append(block)
+                    elif block.get("type") == "image":
+                        # Claude-style image - convert to OpenAI format
+                        source = block.get("source", {})
+                        if source.get("type") == "base64":
+                            media_type = source.get("media_type", "image/jpeg")
+                            data = source.get("data", "")
+                            # Create data URL
+                            data_url = f"data:{media_type};base64,{data}"
+                            new_content.append({
+                                "type": "image_url",
+                                "image_url": {"url": data_url}
+                            })
+                    elif block.get("type") == "image_url":
+                        # Already OpenAI format - pass through
+                        new_content.append(block)
+
+                converted.append({
+                    "role": msg["role"],
+                    "content": new_content
+                })
+            else:
+                # Unknown format - pass through
+                converted.append(msg)
+
+        return converted
 
     async def close(self) -> None:
         """Close HTTP client."""

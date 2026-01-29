@@ -90,7 +90,7 @@ message = Message(
 |----------|---------------|-------|
 | Claude | ✅ Yes | All Sonnet/Opus models |
 | OpenRouter | ✅ Partial | Depends on model |
-| Local | ❌ No | Most local models don't support vision |
+| Local | ✅ Yes | Depends on model (LLaVA, Llama 3.2 Vision, Qwen2-VL, etc.) |
 
 ## Implementation
 
@@ -210,12 +210,43 @@ User: "What about the database layer?"
   (Image still in conversation context)
 ```
 
+## Local Vision Models
+
+Many local models now support vision via Ollama, LM Studio, or vLLM:
+
+**Recommended Models:**
+- **LLaVA 1.6** (7B, 13B, 34B) - General purpose vision
+- **Llama 3.2 Vision** (11B, 90B) - Meta's vision model
+- **Qwen2-VL** (2B, 7B, 72B) - Strong multilingual vision
+- **BakLLaVA** - Fast and efficient
+- **MiniCPM-V** - Compact vision model
+
+**Setup with Ollama:**
+```bash
+# Install a vision model
+ollama pull llava:7b
+# Or Llama 3.2 Vision
+ollama pull llama3.2-vision:11b
+
+# Configure in .env
+SENTINEL_LOCAL_LLM_URL=http://localhost:11434/v1
+```
+
+**Testing Vision:**
+```bash
+# Test with Ollama
+curl http://localhost:11434/v1/chat/completions \
+  -d '{"model": "llava:7b", "messages": [...]}'
+```
+
+The local provider automatically converts image format from Claude-style to OpenAI-style, so vision "just works" if your model supports it.
+
 ## Limitations
 
 1. **Single image per message** - Current implementation supports one image
 2. **No image storage** - Images are base64 in memory only
 3. **No image generation** - Input only, not output
-4. **Provider-dependent** - Cheap models (local) may not support vision
+4. **Model-dependent** - Not all local models support vision (check model docs)
 
 ## Future Enhancements
 
@@ -243,16 +274,21 @@ uv run pytest tests/integration/test_vision.py::test_vision_through_dialog_agent
 ## Troubleshooting
 
 **"Could not process image" error**:
-- Image too small (< 100 bytes)
-- Corrupted image data
-- Unsupported format
+- Image too small (< 100 bytes) or corrupted
+- Model doesn't support vision (check model capabilities)
+- Unsupported format (use JPEG, PNG, WebP, GIF)
 
 **Images not appearing in response**:
-- Check provider supports vision (Claude required)
+- Check model supports vision (llava, llama3.2-vision, qwen2-vl, etc.)
 - Verify image in metadata: `print(message.metadata.get("images"))`
-- Check logs for vision indicator: `[+1 image(s)]`
+- Check logs for vision indicator: `[+X image(s)]`
 
-**High costs**:
+**High costs with Claude**:
 - Images add ~170 tokens per image
-- Use cheap models when vision not needed
+- Use local vision models (free) or OpenRouter (cheaper)
 - Consider image size/quality tradeoffs
+
+**Local model not understanding images**:
+- Model may not support vision - use llava, llama3.2-vision, etc.
+- Check Ollama/LM Studio logs for vision support
+- Try: `ollama list` to see installed models
