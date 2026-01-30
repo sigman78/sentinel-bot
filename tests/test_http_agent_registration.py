@@ -2,8 +2,8 @@
 
 from sentinel.core.tool_agent_registry import ToolAgentRegistry
 from sentinel.agents.agentic_cli import AgenticCliAgent
-from sentinel.configs.curl_agent import config as http_agent_config
-from sentinel.configs.file_agent import config as file_agent_config
+from sentinel.tools.decl.curl_agent import config as http_agent_config
+from sentinel.tools.decl.file_agent import config as file_agent_config
 
 
 def test_http_agent_config():

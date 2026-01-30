@@ -6,8 +6,8 @@ To add a new CLI agent:
 3. Add to CLI_AGENT_CONFIGS list
 """
 
-from sentinel.configs.curl_agent import config as http_agent_config
-from sentinel.configs.file_agent import config as file_agent_config
+from sentinel.tools.decl.curl_agent import config as http_agent_config
+from sentinel.tools.decl.file_agent import config as file_agent_config
 
 # List of all CLI agent configs - add new agents here
 CLI_AGENT_CONFIGS = [

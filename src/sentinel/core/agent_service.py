@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sentinel.agents.agentic_cli import AgenticCliAgent
 from sentinel.agents.tool_agents.weather import WeatherAgent
-from sentinel.configs import CLI_AGENT_CONFIGS
+from sentinel.tools.decl import CLI_AGENT_CONFIGS
 from sentinel.core.logging import get_logger
 from sentinel.core.tool_agent_registry import ToolAgentRegistry, get_tool_agent_registry
 from sentinel.agents.base import LLMProvider

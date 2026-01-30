@@ -270,8 +270,8 @@ class LiteLLMAdapter:
 
 def create_adapter() -> LiteLLMAdapter:
     """Create LiteLLM adapter with model registry."""
-    # Find models.yaml relative to this file
-    config_path = Path(__file__).parent.parent / "configs" / "models.yaml"
+    # Find models.yaml in project root
+    config_path = Path(__file__).parent.parent.parent.parent / "models.yaml"
 
     if not config_path.exists():
         raise FileNotFoundError(f"Model registry not found at {config_path}")

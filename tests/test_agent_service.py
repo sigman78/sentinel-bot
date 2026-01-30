@@ -2,7 +2,7 @@
 
 import pytest
 
-from sentinel.configs import CLI_AGENT_CONFIGS
+from sentinel.tools.decl import CLI_AGENT_CONFIGS
 from sentinel.core.agent_service import initialize_agents
 from sentinel.core.tool_agent_registry import ToolAgentRegistry
 

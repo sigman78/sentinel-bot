@@ -1,7 +1,7 @@
 """Test agent configuration registration pattern."""
 
 from sentinel.agents.agentic_cli import AgenticCliConfig, CliTool, SafetyLimits
-from sentinel.configs import CLI_AGENT_CONFIGS
+from sentinel.tools.decl import CLI_AGENT_CONFIGS
 
 
 def test_cli_configs_list_structure():
@@ -17,7 +17,7 @@ def test_cli_configs_list_structure():
 
 def test_config_imports():
     """Test that individual config modules can be imported."""
-    from sentinel.configs import file_agent, curl_agent
+    from sentinel.tools.decl import file_agent, curl_agent
 
     # Verify they have config attribute
     assert hasattr(file_agent, 'config')
@@ -52,7 +52,7 @@ def test_new_config_pattern():
     )
 
     # 2. Import it in configs/__init__.py:
-    #    from sentinel.configs.my_agent import config as example_config
+    #    from sentinel.tools.decl.my_agent import config as example_config
     #
     # 3. Add to CLI_AGENT_CONFIGS list:
     #    CLI_AGENT_CONFIGS = [
