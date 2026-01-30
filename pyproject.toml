@@ -49,7 +49,7 @@ markers = [
     "integration: tests requiring real API keys (run with: pytest tests/integration)",
 ]
 # Exclude integration tests by default
-addopts = "--ignore=tests/integration"
+addopts = "--ignore=tests/integration -m 'not integration'"
 filterwarnings = [
     # Ignore aiohttp deprecation warning about enable_cleanup_closed (fixed in Python 3.14)
     "ignore:enable_cleanup_closed ignored:DeprecationWarning:aiohttp.connector",
