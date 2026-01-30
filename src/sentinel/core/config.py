@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     telegram_token: str = Field(default="", description="Telegram bot token")
     telegram_owner_id: int = Field(default=0, description="Owner's Telegram user ID")
 
+    # External APIs
+    brave_search_api_key: str = Field(default="", description="Brave Search API key")
+
     # Storage
     data_dir: Path = Field(default=Path("data"), description="Data storage directory")
     db_name: str = Field(default="sentinel.db", description="SQLite database name")

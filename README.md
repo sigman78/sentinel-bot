@@ -12,6 +12,7 @@ Personal AI agents swarm - self-evolving assistant system.
 - **Intelligent LLM routing**: Claude, OpenRouter, local providers - auto-selected by task difficulty and cost
 - **Task scheduling**: One-time reminders and recurring tasks with natural language parsing
 - **Tool calling**: Native API integration for function execution (Anthropic/OpenAI)
+- **Web search**: Real-time web search via Brave Search API
 - **Sandboxed code execution**: Isolated Python workspace for agent-written scripts
 - **Telegram bot** interface with persona support
 - **Self-aware**: Updates human-readable agenda with notes and plans
@@ -43,6 +44,9 @@ SENTINEL_OPENROUTER_API_KEY=sk-or-...
 # Required for Telegram bot
 SENTINEL_TELEGRAM_TOKEN=123456:ABC...
 SENTINEL_TELEGRAM_OWNER_ID=123456789
+
+# Optional: External APIs
+SENTINEL_BRAVE_SEARCH_API_KEY=BSA...
 
 # Optional
 SENTINEL_LOCAL_LLM_URL=http://localhost:1234/v1

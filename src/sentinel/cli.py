@@ -113,6 +113,10 @@ async def _chat_loop(settings: Settings) -> int:
     from sentinel.agents.dialog import DialogAgent
     from sentinel.llm.router import create_default_router
     from sentinel.memory.store import SQLiteMemoryStore
+    from sentinel.tools.builtin import register_all_builtin_tools
+    from sentinel.tools.builtin.agenda import set_data_dir
+    from sentinel.tools.builtin.web_search import set_brave_api_key
+    from sentinel.tools.registry import get_global_registry
 
     print("Sentinel CLI Chat")
     print("Commands: /clear, /status, /exit")
@@ -128,7 +132,15 @@ async def _chat_loop(settings: Settings) -> int:
         await memory.close()
         return 1
 
-    agent = DialogAgent(llm=router, memory=memory)
+    # Register builtin tools
+    register_all_builtin_tools()
+    set_data_dir(settings.data_dir)
+    set_brave_api_key(settings.brave_search_api_key)
+
+    # Get tool registry for DialogAgent
+    tool_registry = get_global_registry()
+
+    agent = DialogAgent(llm=router, memory=memory, tool_registry=tool_registry)
     await agent.initialize()
 
     print("Ready.\n")

@@ -77,6 +77,11 @@ class TelegramInterface(Interface):
         set_task_manager(self._task_manager)
         set_data_dir(settings.data_dir)
 
+        # Set API keys for external services
+        from sentinel.tools.builtin.web_search import set_brave_api_key
+
+        set_brave_api_key(settings.brave_search_api_key)
+
         # Get tool registry for DialogAgent
         tool_registry = get_global_registry()
 
