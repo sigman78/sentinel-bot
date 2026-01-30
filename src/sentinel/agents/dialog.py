@@ -1,5 +1,6 @@
 """Dialog agent - primary user-facing conversation handler with persona."""
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -43,6 +44,34 @@ Conversation summary: {summary}
 Rating:"""
 
 logger = get_logger("agents.dialog")
+
+
+def _strip_tool_markup(text: str) -> str:
+    """
+    Remove XML-style tool call markup from LLM responses.
+
+    Some LLMs include tool calls as XML in their text responses even when using
+    native tool calling. This strips those out to avoid confusing users.
+
+    Args:
+        text: Response text that may contain tool markup
+
+    Returns:
+        Cleaned text without tool markup
+    """
+    # Remove <tool_use>...</tool_use> blocks (Anthropic format)
+    text = re.sub(r"<tool_use>.*?</tool_use>", "", text, flags=re.DOTALL)
+
+    # Remove similar XML-like tool patterns
+    text = re.sub(r"<tool_call>.*?</tool_call>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<function_calls>.*?</function_calls>", "", text, flags=re.DOTALL)
+
+    # Clean up excessive whitespace left by removal
+    text = re.sub(r"\n\s*\n\s*\n", "\n\n", text)
+    text = text.strip()
+
+    return text
+
 
 FALLBACK_IDENTITY = """I'm Sentinel, your personal AI assistant.
 I help with tasks, remember context, and work efficiently."""
@@ -288,12 +317,12 @@ class DialogAgent(BaseAgent):
                 else:
                     final_response.content = results_text
 
-            # Use final response
+            # Use final response (strip any residual tool markup)
             response_msg = Message(
                 id=str(uuid4()),
                 timestamp=datetime.now(),
                 role="assistant",
-                content=final_response.content,
+                content=_strip_tool_markup(final_response.content),
                 content_type=ContentType.TEXT,
                 metadata={
                     "model": final_response.model,
@@ -304,12 +333,12 @@ class DialogAgent(BaseAgent):
                 },
             )
         else:
-            # No tool calls, use original response
+            # No tool calls, use original response (strip any tool markup)
             response_msg = Message(
                 id=str(uuid4()),
                 timestamp=datetime.now(),
                 role="assistant",
-                content=response.content,
+                content=_strip_tool_markup(response.content),
                 content_type=ContentType.TEXT,
                 metadata={
                     "model": response.model,
