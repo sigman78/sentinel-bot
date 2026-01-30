@@ -90,6 +90,8 @@ User: {user_name}
 
 {specialized_agents}
 
+{channel_capabilities}
+
 {tools}
 """
 
@@ -120,6 +122,7 @@ class DialogAgent(BaseAgent):
         self._user_profile = UserProfile()  # Initialize with defaults
         self._identity = FALLBACK_IDENTITY
         self._agenda = ""
+        self._channel_capabilities = ""  # Communication channel formatting info
 
         # Tool calling support
         self._tool_registry = tool_registry
@@ -183,6 +186,11 @@ class DialogAgent(BaseAgent):
 
         self.save_agenda("\n".join(new_lines))
 
+    def set_channel_capabilities(self, capabilities: str) -> None:
+        """Set communication channel formatting capabilities for system prompt."""
+        self._channel_capabilities = capabilities
+        logger.debug(f"Channel capabilities set: {len(capabilities)} chars")
+
     async def _load_user_profile(self) -> None:
         """Load user profile from memory store.
 
@@ -234,6 +242,7 @@ class DialogAgent(BaseAgent):
             agenda=self._extract_agenda_summary(),
             memories=memory_text,
             specialized_agents=specialized_agents_text,
+            channel_capabilities=self._channel_capabilities,
             tools="",  # Empty - tools passed via native API
         )
         logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")

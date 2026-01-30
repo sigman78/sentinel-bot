@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "aiosqlite>=0.20.0",
     "litellm>=1.81.5",
+    "telegramify-markdown>=0.1.0",
 ]
 
 [project.optional-dependencies]

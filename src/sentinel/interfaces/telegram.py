@@ -15,6 +15,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from telegramify_markdown import telegramify
 
 from sentinel.agents.awareness import AwarenessAgent
 from sentinel.agents.code import CodeAgent
@@ -105,6 +106,26 @@ class TelegramInterface(Interface):
             tool_agent_registry=tool_agent_registry,
         )
         await self.agent.initialize()
+
+        # Set Telegram markdown capabilities
+        telegram_capabilities = """## Communication Channel
+You are communicating via Telegram, which supports Markdown formatting:
+
+**Supported Markdown:**
+- *italic* or _italic_
+- **bold** or __bold__
+- ***bold italic*** or ___bold italic___
+- [inline URL](http://www.example.com/)
+- `inline code`
+- ```block code```
+- > blockquote
+
+**Unsupported:**
+- Avoid raw HTML tags (they will be escaped)
+- Avoid complex nested formatting
+
+Format your responses with appropriate markdown for better readability."""
+        self.agent.set_channel_capabilities(telegram_capabilities)
 
         # Initialize background agents with router
         self._sleep_agent = SleepAgent(llm=self._router, memory=self.memory)
@@ -265,17 +286,50 @@ class TelegramInterface(Interface):
     async def _safe_reply(
         self, chat_id: int, text: str, is_markdown: bool = True, reply_to: int | None = None
     ) -> None:
-        """Send message with fallback if markdown fails, splits long messages."""
+        """Send message with Telegram markdown formatting and auto-splitting."""
         if not self.app:
             return
-        # Telegram limit is 4096 chars, use 4000 for safety margin
-        max_len = 4000
-        chunks = self._split_message(text, max_len)
 
-        for i, chunk in enumerate(chunks):
-            # Only reply_to on first chunk
-            reply_id = reply_to if i == 0 else None
-            await self._send_chunk(self.app, chat_id, chunk, is_markdown, reply_id)
+        # Use telegramify to format and split messages
+        if is_markdown:
+            try:
+                from telegramify_markdown import TextInterpreter
+                from telegramify_markdown.type import ContentTypes
+
+                # telegramify returns list of content boxes
+                boxes = await telegramify(
+                    text,
+                    latex_escape=False,
+                    normalize_whitespace=True,
+                    interpreters_use=[TextInterpreter()],  ##, FileInterpreter()],
+                    max_word_count=4090,  # Telegram's ~4096 char limit
+                )
+
+                # Send each text box as a separate message
+                for i, box in enumerate(boxes):
+                    if box.content_type == ContentTypes.TEXT:
+                        # Only reply_to on first chunk
+                        reply_id = reply_to if i == 0 else None
+                        await self._send_chunk(
+                            self.app, chat_id, box.content, is_markdown=True, reply_to=reply_id
+                        )
+            except Exception as e:
+                logger.warning(f"Telegram markdown formatting failed: {e}, sending plain text")
+                # Fallback to plain text with manual splitting
+                chunks = self._split_message(text, 4000)
+                for i, chunk in enumerate(chunks):
+                    reply_id = reply_to if i == 0 else None
+                    await self._send_chunk(
+                        self.app, chat_id, chunk, is_markdown=False, reply_to=reply_id
+                    )
+        else:
+            # Plain text mode - still needs splitting for long messages
+            chunks = self._split_message(text, 4000)
+            for i, chunk in enumerate(chunks):
+                reply_id = reply_to if i == 0 else None
+                await self._send_chunk(
+                    self.app, chat_id, chunk, is_markdown=False, reply_to=reply_id
+                )
 
     async def _send_chunk(
         self,
@@ -288,10 +342,11 @@ class TelegramInterface(Interface):
         """Send a single message chunk with markdown fallback."""
         try:
             if is_markdown:
+                # telegramify outputs MarkdownV2 format
                 await app.bot.send_message(
                     chat_id=chat_id,
                     text=text,
-                    parse_mode=ParseMode.MARKDOWN,
+                    parse_mode=ParseMode.MARKDOWN_V2,
                     reply_to_message_id=reply_to,
                 )
             else:
@@ -304,7 +359,7 @@ class TelegramInterface(Interface):
                 logger.error(f"Failed to send message: {e2}", exc_info=True)
 
     def _split_message(self, text: str, max_len: int) -> list[str]:
-        """Split message into chunks, preferring line breaks."""
+        """Split message into chunks, preferring line breaks (for plain text fallback)."""
         if len(text) <= max_len:
             return [text]
 
