@@ -12,7 +12,7 @@ Personal AI agents swarm - self-evolving assistant system.
 - **Intelligent LLM routing**: Claude, OpenRouter, local providers - auto-selected by task difficulty and cost
 - **Task scheduling**: One-time reminders and recurring tasks with natural language parsing
 - **Tool calling**: Native API integration for function execution (Anthropic/OpenAI)
-- **Web search**: Real-time web search via Brave Search API
+- **Web access**: Real-time web search (Brave API) and webpage content fetching (Jina AI Reader)
 - **Sandboxed code execution**: Isolated Python workspace for agent-written scripts
 - **Telegram bot** interface with persona support
 - **Self-aware**: Updates human-readable agenda with notes and plans

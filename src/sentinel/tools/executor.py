@@ -11,6 +11,38 @@ from sentinel.tools.registry import ToolRegistry
 
 logger = get_logger("tools.executor")
 
+# Maximum length for logged content (characters)
+MAX_LOG_LENGTH = 500
+
+
+def _truncate_for_logging(result: ActionResult, max_len: int = MAX_LOG_LENGTH) -> str:
+    """
+    Create a truncated string representation of ActionResult for logging.
+
+    Args:
+        result: ActionResult to represent
+        max_len: Maximum length of content fields
+
+    Returns:
+        Truncated string representation
+    """
+    if not result.success:
+        # Errors are usually short, log them fully
+        return repr(result)
+
+    if not result.data:
+        return "ActionResult(success=True, data=None)"
+
+    # Truncate long content fields
+    truncated_data = {}
+    for key, value in result.data.items():
+        if isinstance(value, str) and len(value) > max_len:
+            truncated_data[key] = f"{value[:max_len]}... [truncated, {len(value)} chars total]"
+        else:
+            truncated_data[key] = value
+
+    return f"ActionResult(success=True, data={truncated_data})"
+
 
 class DateTimeEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime objects."""
@@ -68,7 +100,7 @@ class ToolExecutor:
         try:
             logger.info(f"Executing tool: {tool_call.tool_name} with args: {tool_call.arguments}")
             result = await tool.executor(**tool_call.arguments)
-            logger.debug(f"Tool {tool_call.tool_name} result: {result}")
+            logger.debug(f"Tool {tool_call.tool_name} result: {_truncate_for_logging(result)}")
             return result
         except TypeError as e:
             # Argument mismatch

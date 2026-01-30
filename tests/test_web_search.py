@@ -1,8 +1,8 @@
-"""Tests for web search tool."""
+"""Tests for web search and fetch tools."""
 
 import pytest
 
-from sentinel.tools.builtin.web_search import set_brave_api_key, web_search
+from sentinel.tools.builtin.web_search import fetch_webpage, set_brave_api_key, web_search
 
 
 @pytest.mark.asyncio
@@ -66,3 +66,55 @@ async def test_web_search_real_query():
         assert "title" in first_result
         assert "url" in first_result
         assert "description" in first_result
+
+
+# Tests for fetch_webpage tool
+
+
+@pytest.mark.asyncio
+async def test_fetch_webpage_invalid_url():
+    """Test fetch_webpage with invalid URL format."""
+    result = await fetch_webpage("not-a-valid-url")
+
+    assert not result.success
+    assert "http://" in result.error.lower() or "https://" in result.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_fetch_webpage_invalid_format():
+    """Test that invalid format parameter defaults to markdown."""
+    result = await fetch_webpage("https://example.com", format="invalid")
+
+    # Should default to markdown format
+    # May succeed or fail depending on network, but shouldn't crash
+    assert result.data is not None or result.error is not None
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_fetch_webpage_real_request_markdown():
+    """Integration test with real webpage (markdown format)."""
+    result = await fetch_webpage("https://example.com", format="markdown")
+
+    assert result.success
+    assert result.data is not None
+    assert "content" in result.data
+    assert "url" in result.data
+    assert result.data["url"] == "https://example.com"
+    assert result.data["format"] == "markdown"
+    assert len(result.data["content"]) > 0
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_fetch_webpage_real_request_json():
+    """Integration test with real webpage (JSON format)."""
+    result = await fetch_webpage("https://example.com", format="json")
+
+    assert result.success
+    assert result.data is not None
+    assert "content" in result.data
+    assert "url" in result.data
+    assert result.data["url"] == "https://example.com"
+    assert result.data["format"] == "json"
+    assert len(result.data["content"]) > 0

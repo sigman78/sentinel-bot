@@ -109,6 +109,100 @@ async def web_search(query: str, count: int = 5) -> ActionResult:
         return ActionResult(success=False, error=f"Search failed: {e!s}")
 
 
+@tool(
+    "fetch_webpage",
+    "Fetch and parse webpage content into clean, AI-readable format",
+    risk_level=RiskLevel.LOW,
+    examples=[
+        'fetch_webpage("https://example.com")',
+        'fetch_webpage("https://news.site/article", format="json")',
+    ],
+)
+async def fetch_webpage(url: str, format: str = "markdown") -> ActionResult:
+    """
+    Fetch webpage content using Jina AI Reader service.
+
+    url: Target webpage URL to fetch
+    format: Output format - "markdown" (default) or "json"
+
+    Returns:
+        ActionResult with parsed webpage content
+    """
+    # Validate URL format
+    if not url.startswith(("http://", "https://")):
+        return ActionResult(
+            success=False,
+            error="URL must start with http:// or https://",
+        )
+
+    # Validate format parameter
+    if format not in ("markdown", "json"):
+        format = "markdown"
+
+    # Construct Jina AI Reader URL
+    jina_url = f"https://r.jina.ai/{url}"
+
+    headers = {
+        "Accept": "application/json" if format == "json" else "text/markdown",
+        "X-Return-Format": format,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(jina_url, headers=headers)
+            response.raise_for_status()
+
+            # Extract content based on format
+            if format == "json":
+                data = response.json()
+                content = data.get("data", {}).get("content", response.text)
+                title = data.get("data", {}).get("title", "")
+                description = data.get("data", {}).get("description", "")
+
+                return ActionResult(
+                    success=True,
+                    data={
+                        "url": url,
+                        "format": format,
+                        "title": title,
+                        "description": description,
+                        "content": content,
+                    },
+                )
+            else:
+                # Markdown format
+                content = response.text
+                return ActionResult(
+                    success=True,
+                    data={
+                        "url": url,
+                        "format": format,
+                        "content": content,
+                    },
+                )
+
+    except httpx.HTTPStatusError as e:
+        error_msg = f"HTTP {e.response.status_code}: Failed to fetch webpage"
+        if e.response.status_code == 404:
+            error_msg = "Webpage not found (404)"
+        elif e.response.status_code == 403:
+            error_msg = "Access forbidden (403)"
+        elif e.response.status_code == 500:
+            error_msg = "Server error (500)"
+
+        return ActionResult(success=False, error=error_msg)
+
+    except httpx.TimeoutException:
+        return ActionResult(success=False, error="Request timed out after 30 seconds")
+
+    except httpx.InvalidURL:
+        return ActionResult(success=False, error="Invalid URL format")
+
+    except Exception as e:
+        return ActionResult(success=False, error=f"Failed to fetch webpage: {e!s}")
+
+
 def register_web_search_tools() -> None:
     """Register web search tools with the global registry."""
     register_tool(web_search._tool)  # type: ignore[attr-defined]
+    register_tool(fetch_webpage._tool)  # type: ignore[attr-defined]
