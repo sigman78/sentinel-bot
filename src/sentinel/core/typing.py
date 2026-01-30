@@ -1,9 +1,9 @@
 """Shared typing aliases used across modules."""
 
-from typing import Any, TypeAlias
+from typing import Any
 
-JSONDict: TypeAlias = dict[str, Any]
-MessageDict: TypeAlias = dict[str, Any]
-StringDict: TypeAlias = dict[str, str]
-ToolCallDict: TypeAlias = dict[str, Any]
-ToolSpec: TypeAlias = dict[str, Any]
+type JSONDict = dict[str, Any]
+type MessageDict = dict[str, Any]
+type StringDict = dict[str, str]
+type ToolCallDict = dict[str, Any]
+type ToolSpec = dict[str, Any]

@@ -3,8 +3,6 @@
 from datetime import datetime
 from uuid import uuid4
 
-import pytest
-
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.telegram import TelegramInterface
 

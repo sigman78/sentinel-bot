@@ -66,9 +66,7 @@ class ToolExecutor:
 
         # Execute tool
         try:
-            logger.info(
-                f"Executing tool: {tool_call.tool_name} with args: {tool_call.arguments}"
-            )
+            logger.info(f"Executing tool: {tool_call.tool_name} with args: {tool_call.arguments}")
             result = await tool.executor(**tool_call.arguments)
             logger.debug(f"Tool {tool_call.tool_name} result: {result}")
             return result
@@ -118,7 +116,12 @@ class ToolExecutor:
                 lines.append(f"Tool {i}: SUCCESS")
                 if result.data:
                     # Format data as JSON (with datetime handling)
-                    lines.append(f"Result: {json.dumps(result.data, indent=2, cls=DateTimeEncoder)}")
+                    formatted = json.dumps(
+                        result.data,
+                        indent=2,
+                        cls=DateTimeEncoder,
+                    )
+                    lines.append(f"Result: {formatted}")
             else:
                 lines.append(f"Tool {i}: FAILED")
                 lines.append(f"Error: {result.error}")

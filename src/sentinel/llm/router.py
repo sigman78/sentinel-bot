@@ -81,15 +81,14 @@ class SentinelLLMRouter:
         difficulty = self.task_difficulty.get(task_name, 2)
 
         # 2. Check budget - downgrade if approaching limit
-        if self._cost_tracker and self._cost_tracker.should_use_cheaper_model():
-            if difficulty > 1:
-                original = difficulty
-                difficulty = max(1, difficulty - 1)
-                summary = self._cost_tracker.get_cost_summary()
-                logger.info(
-                    f"Budget at {summary['percent_used']:.1f}%: "
-                    f"downgraded difficulty {original} -> {difficulty}"
-                )
+        if self._cost_tracker and self._cost_tracker.should_use_cheaper_model() and difficulty > 1:
+            original = difficulty
+            difficulty = max(1, difficulty - 1)
+            summary = self._cost_tracker.get_cost_summary()
+            logger.info(
+                f"Budget at {summary['percent_used']:.1f}%: "
+                f"downgraded difficulty {original} -> {difficulty}"
+            )
 
         # 3. Get candidate models for this difficulty
         candidates = self.registry.get_by_difficulty(difficulty)
@@ -108,9 +107,9 @@ class SentinelLLMRouter:
             pref_model = self.registry.get(preferred)
             if pref_model and pref_model.is_available:
                 # Put preferred model first
-                candidates = [
-                    m for m in candidates if m.model_id == preferred
-                ] + [m for m in candidates if m.model_id != preferred]
+                candidates = [m for m in candidates if m.model_id == preferred] + [
+                    m for m in candidates if m.model_id != preferred
+                ]
 
         # 5. Sort by cost (cheapest first within difficulty)
         candidates = self.registry.rank_by_cost(candidates)

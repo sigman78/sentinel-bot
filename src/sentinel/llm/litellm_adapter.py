@@ -58,9 +58,7 @@ class ModelConfig:
         """Check if model is available (has required credentials)."""
         if self.auth_env and not self.api_key:
             return False
-        if self.base_url_env and not self.base_url:
-            return False
-        return True
+        return not (self.base_url_env and not self.base_url)
 
 
 class ModelRegistry:
@@ -84,11 +82,7 @@ class ModelRegistry:
 
     def get_by_difficulty(self, difficulty: int) -> list[ModelConfig]:
         """Get all available models matching difficulty level."""
-        return [
-            m
-            for m in self.models.values()
-            if m.difficulty == difficulty and m.is_available
-        ]
+        return [m for m in self.models.values() if m.difficulty == difficulty and m.is_available]
 
     def rank_by_cost(self, models: list[ModelConfig]) -> list[ModelConfig]:
         """Sort models by total cost (input + output), cheapest first."""
@@ -134,18 +128,14 @@ class LiteLLMAdapter:
                             data = source.get("data", "")
                             # Create data URL
                             data_url = f"data:{media_type};base64,{data}"
-                            new_content.append({
-                                "type": "image_url",
-                                "image_url": {"url": data_url}
-                            })
+                            new_content.append(
+                                {"type": "image_url", "image_url": {"url": data_url}}
+                            )
                     elif block.get("type") == "image_url":
                         # Already OpenAI format - pass through
                         new_content.append(block)
 
-                converted.append({
-                    "role": msg["role"],
-                    "content": new_content
-                })
+                converted.append({"role": msg["role"], "content": new_content})
             else:
                 # Unknown format - pass through
                 converted.append(msg)
@@ -175,9 +165,7 @@ class LiteLLMAdapter:
             raise ValueError(f"Model {model_id} not in registry")
 
         if not model_config.is_available:
-            raise ValueError(
-                f"Model {model_id} not available (missing credentials/config)"
-            )
+            raise ValueError(f"Model {model_id} not available (missing credentials/config)")
 
         # Convert any Claude-style image blocks to OpenAI format
         messages = self._convert_to_openai_format(messages)
@@ -246,10 +234,9 @@ class LiteLLMAdapter:
             output_tokens = usage.completion_tokens if usage else 0
 
             # Calculate cost from registry
-            cost_usd = (
-                (input_tokens / 1_000_000) * model_config.cost_per_1m_input
-                + (output_tokens / 1_000_000) * model_config.cost_per_1m_output
-            )
+            cost_usd = (input_tokens / 1_000_000) * model_config.cost_per_1m_input + (
+                output_tokens / 1_000_000
+            ) * model_config.cost_per_1m_output
 
             logger.debug(
                 f"LiteLLM response: model={response.model}, "

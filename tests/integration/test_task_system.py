@@ -81,7 +81,9 @@ async def test_end_to_end_reminder_flow(task_manager, notification_log):
 async def test_recurring_task_multiple_executions(task_manager, memory, notification_log):
     """Test recurring task executes multiple times and properly advances schedule."""
     # Create task scheduled for yesterday at 9am (past due)
-    yesterday_9am = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    yesterday_9am = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0) - timedelta(
+        days=1
+    )
 
     await memory.create_task(
         task_id="recurring_test",
@@ -109,7 +111,8 @@ async def test_recurring_task_multiple_executions(task_manager, memory, notifica
 
     # Manually set to yesterday again (simulate another day passing)
     await memory.update_task(
-        "recurring_test", next_run=yesterday_9am - timedelta(days=1)  # 2 days ago
+        "recurring_test",
+        next_run=yesterday_9am - timedelta(days=1),  # 2 days ago
     )
 
     # Second execution
@@ -163,6 +166,7 @@ async def test_multiple_tasks_priority(task_manager, memory, notification_log):
 @pytest.mark.asyncio
 async def test_task_persistence_across_restart(memory, notification_log):
     """Test tasks persist and work after 'restart' (new manager instance)."""
+
     # First manager - create task
     async def notify1(msg):
         notification_log.append(("manager1", msg))
@@ -263,7 +267,7 @@ async def test_weekday_recurring_calculation(task_manager, memory):
     await memory.update_task(task_id, next_run=friday_evening)
 
     # Execute (will reschedule)
-    results = await task_manager.check_and_execute_due_tasks()
+    await task_manager.check_and_execute_due_tasks()
 
     # Next run should be Monday, not Saturday
     task = await memory.get_task(task_id)
@@ -276,8 +280,6 @@ async def test_weekday_recurring_calculation(task_manager, memory):
 @pytest.mark.asyncio
 async def test_task_list_ordering(task_manager):
     """Test tasks are listed in next_run order."""
-    now = datetime.now()
-
     # Create tasks with different next_run times
     await task_manager.add_reminder("5m", "task 1")
     await task_manager.add_reminder("1m", "task 2")

@@ -64,9 +64,7 @@ async def delegate_to_agent(agent_name: str, task: str) -> ActionResult:
         return ActionResult(success=False, data=None, error=str(e))
     except Exception as e:
         # Execution error
-        return ActionResult(
-            success=False, data=None, error=f"Delegation failed: {str(e)}"
-        )
+        return ActionResult(success=False, data=None, error=f"Delegation failed: {str(e)}")
 
 
 def register_delegation_tools() -> None:

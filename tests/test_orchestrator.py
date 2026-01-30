@@ -63,13 +63,22 @@ def test_task_priority():
     """Test task priority ordering."""
     tasks = [
         ScheduledTask(
-            id="low", name="Low", callback=lambda: None, priority=TaskPriority.LOW,
+            id="low",
+            name="Low",
+            callback=lambda: None,
+            priority=TaskPriority.LOW,
         ),
         ScheduledTask(
-            id="high", name="High", callback=lambda: None, priority=TaskPriority.HIGH,
+            id="high",
+            name="High",
+            callback=lambda: None,
+            priority=TaskPriority.HIGH,
         ),
         ScheduledTask(
-            id="normal", name="Normal", callback=lambda: None, priority=TaskPriority.NORMAL,
+            id="normal",
+            name="Normal",
+            callback=lambda: None,
+            priority=TaskPriority.NORMAL,
         ),
     ]
     sorted_tasks = sorted(tasks, key=lambda t: t.priority.value, reverse=True)

@@ -131,7 +131,11 @@ async def test_recurring_task_reschedule(task_manager, memory):
     # Next run should be in the future
     task = await memory.get_task("recurring123")
     # next_run is already a datetime object from SQLite
-    next_run = task["next_run"] if isinstance(task["next_run"], datetime) else datetime.fromisoformat(task["next_run"])
+    next_run = (
+        task["next_run"]
+        if isinstance(task["next_run"], datetime)
+        else datetime.fromisoformat(task["next_run"])
+    )
     assert next_run > datetime.now()
 
 

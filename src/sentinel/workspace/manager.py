@@ -60,9 +60,7 @@ class WorkspaceManager:
     async def save_script(self, content: str, prefix: str = "script") -> Path:
         """Save script to workspace with validation."""
         if len(content.encode("utf-8")) > self._max_script_size:
-            raise ValueError(
-                f"Script exceeds size limit ({self._max_script_size} bytes)"
-            )
+            raise ValueError(f"Script exceeds size limit ({self._max_script_size} bytes)")
 
         # Generate unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

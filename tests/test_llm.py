@@ -1,8 +1,8 @@
 """Tests for LLM module."""
 
 from sentinel.llm.base import LLMConfig
-from sentinel.llm.router import SentinelLLMRouter, TaskType
 from sentinel.llm.litellm_adapter import create_adapter
+from sentinel.llm.router import SentinelLLMRouter, TaskType
 
 
 def test_llm_config_defaults():

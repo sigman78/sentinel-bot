@@ -64,7 +64,7 @@ class ToolParser:
             json_patterns = re.findall(
                 r'\{(?:[^{}]|\{[^{}]*\})*?"tool"\s*:\s*"[^"]*"(?:[^{}]|\{[^{}]*\})*?\}',
                 text,
-                re.DOTALL
+                re.DOTALL,
             )
             for pattern in json_patterns:
                 tool_call = ToolParser._parse_json_block(pattern)
@@ -101,9 +101,7 @@ class ToolParser:
                 logger.warning(f"Tool call has invalid args type: {type(arguments)}")
                 return None
 
-            return ToolCall(
-                tool_name=tool_name, arguments=arguments, raw_json=block.strip()
-            )
+            return ToolCall(tool_name=tool_name, arguments=arguments, raw_json=block.strip())
 
         except json.JSONDecodeError as e:
             logger.debug(f"Failed to parse JSON block: {e}")

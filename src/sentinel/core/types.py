@@ -11,6 +11,7 @@ from typing import Any
 
 from sentinel.core.typing import MessageDict
 
+
 class ContentType(Enum):
     TEXT = "text"
     VOICE = "voice"
@@ -61,21 +62,20 @@ class Message:
 
             # Add text block if present
             if self.content:
-                content_blocks.append({
-                    "type": "text",
-                    "text": self.content
-                })
+                content_blocks.append({"type": "text", "text": self.content})
 
             # Add image blocks
             for img in images:
-                content_blocks.append({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": img.get("media_type", "image/jpeg"),
-                        "data": img["data"]  # Base64 encoded
+                content_blocks.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": img.get("media_type", "image/jpeg"),
+                            "data": img["data"],  # Base64 encoded
+                        },
                     }
-                })
+                )
 
             return {"role": self.role, "content": content_blocks}
 

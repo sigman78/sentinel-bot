@@ -2,14 +2,12 @@
 
 from abc import abstractmethod
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
-from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.agents.base import AgentConfig, AgentState, BaseAgent, LLMProvider
 from sentinel.core.logging import get_logger
-from typing import Any
-
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.agents.base import LLMProvider
 
 logger = get_logger("agents.tool_agent")
 

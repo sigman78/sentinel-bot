@@ -17,11 +17,11 @@ def test_cli_configs_list_structure():
 
 def test_config_imports():
     """Test that individual config modules can be imported."""
-    from sentinel.tools.decl import file_agent, curl_agent
+    from sentinel.tools.decl import curl_agent, file_agent
 
     # Verify they have config attribute
-    assert hasattr(file_agent, 'config')
-    assert hasattr(curl_agent, 'config')
+    assert hasattr(file_agent, "config")
+    assert hasattr(curl_agent, "config")
 
     # Verify configs are of correct type
     assert isinstance(file_agent.config, AgenticCliConfig)
@@ -62,7 +62,7 @@ def test_new_config_pattern():
     #    ]
 
     # Verify the example has required attributes
-    assert hasattr(example_config, 'name')
-    assert hasattr(example_config, 'description')
-    assert hasattr(example_config, 'tools')
+    assert hasattr(example_config, "name")
+    assert hasattr(example_config, "description")
+    assert hasattr(example_config, "tools")
     assert isinstance(example_config, AgenticCliConfig)

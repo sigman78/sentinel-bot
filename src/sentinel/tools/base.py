@@ -35,8 +35,7 @@ class Tool:
     def to_context_string(self) -> str:
         """Format tool for LLM context."""
         params_str = ", ".join(
-            f"{p.name}: {p.type}" + ("" if p.required else " (optional)")
-            for p in self.parameters
+            f"{p.name}: {p.type}" + ("" if p.required else " (optional)") for p in self.parameters
         )
 
         lines = [f"{self.name}({params_str})"]

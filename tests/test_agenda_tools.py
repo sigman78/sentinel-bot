@@ -1,6 +1,5 @@
 """Tests for agenda management tools."""
 
-
 import pytest
 
 from sentinel.tools.builtin.agenda import (
@@ -65,8 +64,7 @@ async def test_update_agenda_section(temp_agenda):
     """Test updating a specific section."""
     # Update a section
     result = await update_agenda(
-        section="Current tasks and goals",
-        content="- New task A\n- New task B"
+        section="Current tasks and goals", content="- New task A\n- New task B"
     )
 
     assert result.success is True
@@ -84,10 +82,7 @@ async def test_update_agenda_section(temp_agenda):
 async def test_update_agenda_preserves_structure(temp_agenda):
     """Test that updating preserves file structure."""
     # Update one section
-    await update_agenda(
-        section="Work notes",
-        content="Updated note"
-    )
+    await update_agenda(section="Work notes", content="Updated note")
 
     # Check that other sections are preserved
     check_result = await check_agenda()
@@ -106,10 +101,7 @@ async def test_update_agenda_preserves_structure(temp_agenda):
 @pytest.mark.asyncio
 async def test_update_agenda_invalid_section(temp_agenda):
     """Test updating an invalid section."""
-    result = await update_agenda(
-        section="Invalid Section",
-        content="Some content"
-    )
+    result = await update_agenda(section="Invalid Section", content="Some content")
 
     assert result.success is False
     assert "Unknown section" in result.error
@@ -118,10 +110,7 @@ async def test_update_agenda_invalid_section(temp_agenda):
 @pytest.mark.asyncio
 async def test_update_agenda_empty_section(temp_agenda):
     """Test clearing a section."""
-    result = await update_agenda(
-        section="Work notes",
-        content=""
-    )
+    result = await update_agenda(section="Work notes", content="")
 
     assert result.success is True
 

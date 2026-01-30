@@ -4,14 +4,13 @@ import asyncio
 import json
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, cast
 from uuid import uuid4
 
-from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.agents.base import AgentConfig, AgentState, BaseAgent, LLMProvider
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.agents.base import LLMProvider
 from sentinel.core.typing import StringDict
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
@@ -75,9 +74,7 @@ class CliTool:
                 except Exception:
                     continue
 
-        return cls(
-            name=name, command=command, help_text=help_text, examples=examples or []
-        )
+        return cls(name=name, command=command, help_text=help_text, examples=examples or [])
 
     def to_llm_context(self) -> str:
         """Format tool documentation for LLM context."""
@@ -200,7 +197,8 @@ class AgenticLoopState:
 
 AGENTIC_CLI_SYSTEM = """You are {agent_name}: {agent_description}
 
-You execute tasks autonomously by calling CLI tools. Respond with JSON showing your reasoning and next action.
+You execute tasks autonomously by calling CLI tools. Respond with JSON showing your \
+reasoning and next action.
 
 ## Current State
 
@@ -231,10 +229,13 @@ You MUST respond with valid JSON in this exact format:
 
 ## Guidelines
 
- - Use only the CLI tools advertised by the agent. Fail if the job cannot be accomplished with the provided tools or if any required tool is unavailable.
+ - Use only the CLI tools advertised by the agent. Fail if the job cannot be accomplished \
+   with the provided tools or if any required tool is unavailable.
  - Execute ONE command at a time based on current state. 
- - You may pipe CLI command output into platform's common filter, trim, sort, grep commands to keep output relevant and lean.
- - Add 'non interactive' options for CLI commands, if necessary, but be mindful about dangerous operations.
+ - You may pipe CLI command output into platform's common filter, trim, sort, grep \
+   commands to keep output relevant and lean.
+ - Add 'non interactive' options for CLI commands, if necessary, but be mindful about \
+   dangerous operations.
  - Be aware of environment/shell you are operating on - windows, linux, wsl, freebsd, etc.
  - Use full CLI syntax - the command will be executed in a shell
  - Analyze stdout/stderr from previous commands before next step
@@ -283,7 +284,8 @@ Error case - Cannot proceed:
 
 Negative result case - Valid answer:
 {{
-  "thinking": "Searched with 'dir *.py' and got 'File Not Found' - this means no Python files exist",
+  "thinking": "Searched with 'dir *.py' and got 'File Not Found' - this means no Python \
+files exist",
   "action": {{
     "type": "done",
     "status": "success",
@@ -306,9 +308,7 @@ class AgenticCliAgent(BaseAgent):
     agent_name: str = "AgenticCliAgent"
     capability_description: str = "Generic CLI tool agent"
 
-    def __init__(
-        self, config: AgenticCliConfig, llm: LLMProvider, working_dir: str | None = None
-    ):
+    def __init__(self, config: AgenticCliConfig, llm: LLMProvider, working_dir: str | None = None):
         """Initialize agentic CLI agent.
 
         Args:
@@ -348,7 +348,9 @@ class AgenticCliAgent(BaseAgent):
             while True:
                 # SAFETY LIMIT 1: Timeout
                 if loop_state.elapsed_seconds() >= self.limits.timeout_seconds:
-                    logger.warning(f"{self.agent_name} timeout after {loop_state.elapsed_seconds():.1f}s")
+                    logger.warning(
+                        f"{self.agent_name} timeout after {loop_state.elapsed_seconds():.1f}s"
+                    )
                     return self._create_error_response(
                         f"Task timeout after {self.limits.timeout_seconds}s"
                     )
@@ -487,7 +489,7 @@ class AgenticCliAgent(BaseAgent):
             return cast(dict[str, Any], data)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {content[:200]}")
-            raise ValueError(f"Invalid JSON response from LLM: {e}")
+            raise ValueError(f"Invalid JSON response from LLM: {e}") from e
 
     async def _execute_command(self, command: str) -> CommandResult:
         """Execute CLI command in subprocess.
@@ -510,9 +512,7 @@ class AgenticCliAgent(BaseAgent):
             )
 
             # Wait with timeout (per-command limit)
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=30.0
-            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
 
             duration_ms = (datetime.now() - start_time).total_seconds() * 1000
 
@@ -525,7 +525,7 @@ class AgenticCliAgent(BaseAgent):
                 duration_ms=duration_ms,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration_ms = (datetime.now() - start_time).total_seconds() * 1000
             return CommandResult(
                 command=command,

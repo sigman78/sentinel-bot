@@ -42,7 +42,8 @@ async def test_fts_table_exists(memory_store):
 async def test_fts_triggers_exist(memory_store):
     """Verify FTS sync triggers were created."""
     async with memory_store.conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN ('episodes_ai', 'facts_ai')"
+        "SELECT name FROM sqlite_master WHERE type='trigger' "
+        "AND name IN ('episodes_ai', 'facts_ai')"
     ) as cursor:
         results = await cursor.fetchall()
         assert len(results) == 2, f"Expected 2 triggers, found {len(results)}"

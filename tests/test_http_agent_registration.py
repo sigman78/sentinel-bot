@@ -1,7 +1,7 @@
 """Test that HttpAgent is properly registered and chosen for HTTP tasks."""
 
-from sentinel.core.tool_agent_registry import ToolAgentRegistry
 from sentinel.agents.agentic_cli import AgenticCliAgent
+from sentinel.core.tool_agent_registry import ToolAgentRegistry
 from sentinel.tools.decl.curl_agent import config as http_agent_config
 from sentinel.tools.decl.file_agent import config as file_agent_config
 

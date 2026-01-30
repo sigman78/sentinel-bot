@@ -1,7 +1,5 @@
 """Tool registry for managing available tools."""
 
-from typing import Any
-
 from sentinel.core.logging import get_logger
 from sentinel.core.typing import ToolSpec
 from sentinel.tools.base import Tool

@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -130,9 +130,7 @@ async def test_stop_handles_summarize_failure():
     interface.agent = Mock()
     interface.agent.context = Mock()
     interface.agent.context.conversation = [Mock(), Mock()]
-    interface.agent.summarize_session = AsyncMock(
-        side_effect=Exception("Summarize failed")
-    )
+    interface.agent.summarize_session = AsyncMock(side_effect=Exception("Summarize failed"))
 
     # Mock other components
     interface._orchestrator = Mock()

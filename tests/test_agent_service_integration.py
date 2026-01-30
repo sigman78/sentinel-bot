@@ -29,11 +29,11 @@ async def test_initialize_agents_with_real_llm():
 
     # Verify capabilities summary
     capabilities = registry.get_capabilities_summary()
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("AGENT CAPABILITIES (auto-discovered):")
-    print("="*80)
+    print("=" * 80)
     print(capabilities)
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
     # Check that each agent is described
     assert "WeatherAgent" in capabilities

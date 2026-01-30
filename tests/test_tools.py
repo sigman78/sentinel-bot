@@ -13,9 +13,7 @@ class TestToolParameter:
     """Test ToolParameter."""
 
     def test_create_parameter(self):
-        param = ToolParameter(
-            name="delay", type="string", description="Time delay", required=True
-        )
+        param = ToolParameter(name="delay", type="string", description="Time delay", required=True)
         assert param.name == "delay"
         assert param.type == "string"
         assert param.required is True
@@ -31,9 +29,7 @@ class TestTool:
         tool_obj = Tool(
             name="test_tool",
             description="A test tool",
-            parameters=[
-                ToolParameter("arg1", "string", "First argument", required=True)
-            ],
+            parameters=[ToolParameter("arg1", "string", "First argument", required=True)],
             executor=self.dummy_executor,
         )
         assert tool_obj.name == "test_tool"
@@ -62,9 +58,7 @@ class TestTool:
         tool_obj = Tool(
             name="test_tool",
             description="A test tool",
-            parameters=[
-                ToolParameter("arg1", "string", "First argument", required=True)
-            ],
+            parameters=[ToolParameter("arg1", "string", "First argument", required=True)],
             executor=self.dummy_executor,
         )
         valid, error = tool_obj.validate_args({"arg1": "value"})
@@ -75,9 +69,7 @@ class TestTool:
         tool_obj = Tool(
             name="test_tool",
             description="A test tool",
-            parameters=[
-                ToolParameter("arg1", "string", "First argument", required=True)
-            ],
+            parameters=[ToolParameter("arg1", "string", "First argument", required=True)],
             executor=self.dummy_executor,
         )
         valid, error = tool_obj.validate_args({})
@@ -88,9 +80,7 @@ class TestTool:
         tool_obj = Tool(
             name="test_tool",
             description="A test tool",
-            parameters=[
-                ToolParameter("arg1", "string", "First argument", required=True)
-            ],
+            parameters=[ToolParameter("arg1", "string", "First argument", required=True)],
             executor=self.dummy_executor,
         )
         valid, error = tool_obj.validate_args({"arg1": "value", "unknown": "bad"})
@@ -175,7 +165,7 @@ class TestToolParser:
     """Test ToolParser."""
 
     def test_parse_json_block(self):
-        text = '''
+        text = """
 Here's how to do it:
 
 ```json
@@ -189,35 +179,35 @@ Here's how to do it:
 ```
 
 That should work!
-'''
+"""
         calls = ToolParser.extract_calls(text)
         assert len(calls) == 1
         assert calls[0].tool_name == "add_reminder"
         assert calls[0].arguments == {"delay": "5m", "message": "test"}
 
     def test_parse_code_block(self):
-        text = '''
+        text = """
 ```
 {
     "tool": "list_tasks",
     "args": {}
 }
 ```
-'''
+"""
         calls = ToolParser.extract_calls(text)
         assert len(calls) == 1
         assert calls[0].tool_name == "list_tasks"
 
     def test_parse_raw_json(self):
-        text = '''
+        text = """
 I'll use this tool: {"tool": "get_current_time", "args": {}}
-'''
+"""
         calls = ToolParser.extract_calls(text)
         assert len(calls) == 1
         assert calls[0].tool_name == "get_current_time"
 
     def test_parse_multiple_calls(self):
-        text = '''
+        text = """
 ```json
 {"tool": "add_reminder", "args": {"delay": "5m", "message": "first"}}
 ```
@@ -227,7 +217,7 @@ And also:
 ```json
 {"tool": "add_reminder", "args": {"delay": "10m", "message": "second"}}
 ```
-'''
+"""
         calls = ToolParser.extract_calls(text)
         assert len(calls) == 2
         assert calls[0].arguments["message"] == "first"
@@ -239,11 +229,11 @@ And also:
         assert len(calls) == 0
 
     def test_parse_invalid_json(self):
-        text = '''
+        text = """
 ```json
 {invalid json}
 ```
-'''
+"""
         calls = ToolParser.extract_calls(text)
         assert len(calls) == 0
 

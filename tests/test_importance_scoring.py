@@ -152,9 +152,7 @@ def test_calculate_exchange_importance_capped_at_one():
         id="1",
         timestamp=datetime.now(),
         role="user",
-        content=(
-            "Important urgent decision: Remember to always help me with errors. " * 10
-        ),
+        content=("Important urgent decision: Remember to always help me with errors. " * 10),
         content_type=ContentType.TEXT,
     )
     assistant_msg = Message(

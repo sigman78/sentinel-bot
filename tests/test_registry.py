@@ -1,6 +1,6 @@
 """Tests for YAML-based model registry."""
 
-from sentinel.llm.litellm_adapter import ModelRegistry, create_adapter
+from sentinel.llm.litellm_adapter import create_adapter
 
 
 def test_registry_loads_from_yaml():

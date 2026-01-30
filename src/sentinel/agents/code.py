@@ -4,11 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.agents.base import AgentConfig, AgentState, BaseAgent, LLMProvider
 from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.agents.base import LLMProvider
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
@@ -137,9 +136,7 @@ class CodeAgent(BaseAgent):
             }
         ]
 
-        response = await self.llm.complete(
-            messages, llm_config, task=TaskType.SUMMARIZATION
-        )
+        response = await self.llm.complete(messages, llm_config, task=TaskType.SUMMARIZATION)
         return response.content.strip()
 
     async def _persist_execution(

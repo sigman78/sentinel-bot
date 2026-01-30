@@ -68,8 +68,8 @@ Options:
   /R dir    Search from directory recursively""",
             examples=[
                 "where python",
-                'where /R . *.py',
-                'where /R src *.txt',
+                "where /R . *.py",
+                "where /R src *.txt",
             ],
         ),
         CliTool(
@@ -165,11 +165,14 @@ Options:
 
 config = AgenticCliConfig(
     name="FileAgent",
-    description=f"I can explore and analyze files and directories using {'Windows' if IS_WINDOWS else 'Unix'} commands",
+    description=(
+        "I can explore and analyze files and directories using "
+        f"{'Windows' if IS_WINDOWS else 'Unix'} commands"
+    ),
     tools=tools,
     limits=SafetyLimits(
         timeout_seconds=90,  # Longer to account for LLM latency
-        max_iterations=10,   # Reduced - most tasks finish in 3-5 iterations
+        max_iterations=10,  # Reduced - most tasks finish in 3-5 iterations
         max_consecutive_errors=3,
         max_total_errors=5,
     ),

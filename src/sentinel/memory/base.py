@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sentinel.memory.profile import UserProfile
@@ -73,4 +73,4 @@ class MemoryStore(ABC):
 
     async def update_profile(self, profile: "UserProfile") -> None:
         """Update user profile. No-op if not implemented."""
-        pass
+        return None

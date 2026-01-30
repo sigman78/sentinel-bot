@@ -107,8 +107,7 @@ class SQLiteMemoryStore(MemoryStore):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # Use detect_types to enable our custom datetime converters
         self._conn = await aiosqlite.connect(
-            self.db_path,
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+            self.db_path, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
         )
         await self._conn.executescript(SCHEMA)
         await self._conn.commit()
@@ -236,7 +235,8 @@ class SQLiteMemoryStore(MemoryStore):
                     (
                         (fts_rank * -0.5) +                          -- FTS rank (negative = better)
                         (importance * 0.3) +                         -- Importance (0-1)
-                        (1.0 / (1.0 + days_old / 30.0) * 0.2)      -- Recency decay (30-day half-life)
+                        (1.0 / (1.0 + days_old / 30.0) * 0.2)         -- Recency decay
+                                                                      -- (30-day half-life)
                     ) as composite_score
                 FROM scored_memories
                 ORDER BY composite_score DESC
@@ -442,7 +442,11 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def list_tasks(self, enabled_only: bool = True) -> list[dict[str, Any]]:
         """List all tasks."""
-        query = "SELECT id, task_type, description, schedule_type, schedule_data, execution_data, enabled, created_at, last_run, next_run FROM scheduled_tasks"
+        query = (
+            "SELECT id, task_type, description, schedule_type, schedule_data, "
+            "execution_data, enabled, created_at, last_run, next_run "
+            "FROM scheduled_tasks"
+        )
         if enabled_only:
             query += " WHERE enabled = 1"
         query += " ORDER BY next_run"

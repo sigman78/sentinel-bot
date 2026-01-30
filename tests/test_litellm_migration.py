@@ -1,11 +1,12 @@
 """Tests to verify LiteLLM migration correctness."""
 
+from pathlib import Path
+
 import pytest
 
 from sentinel.llm.base import LLMConfig
-from sentinel.llm.litellm_adapter import ModelRegistry, LiteLLMAdapter, create_adapter
-from sentinel.llm.router import SentinelLLMRouter, TaskType, create_default_router
-from pathlib import Path
+from sentinel.llm.litellm_adapter import ModelRegistry, create_adapter
+from sentinel.llm.router import TaskType, create_default_router
 
 
 def test_model_registry_loads():
@@ -66,15 +67,12 @@ async def test_router_task_based_selection():
         assert response.content
         assert response.cost_usd >= 0
         assert response.input_tokens > 0
-        simple_cost = response.cost_usd
     except Exception as e:
         pytest.skip(f"No models available for simple task: {e}")
 
     # Reasoning task should use difficulty 3 model (may be more expensive)
     try:
-        response_reasoning = await router.complete(
-            messages, config, task=TaskType.REASONING
-        )
+        response_reasoning = await router.complete(messages, config, task=TaskType.REASONING)
         assert response_reasoning.content
         assert response_reasoning.cost_usd >= 0
     except Exception as e:

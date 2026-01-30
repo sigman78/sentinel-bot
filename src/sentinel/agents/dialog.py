@@ -5,22 +5,21 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.agents.base import AgentConfig, AgentState, BaseAgent, LLMProvider
 from sentinel.core.config import get_settings
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.agents.base import LLMProvider
+from sentinel.core.typing import MessageDict, ToolSpec
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 from sentinel.memory.profile import UserProfile
-from sentinel.tools.executor import ToolExecutor
-from sentinel.tools.parser import ToolCall
-from sentinel.core.typing import MessageDict, ToolSpec
-from sentinel.tools.registry import ToolRegistry
 
 # Import for delegation context
 from sentinel.tools.builtin.delegation import set_current_user_profile
+from sentinel.tools.executor import ToolExecutor
+from sentinel.tools.parser import ToolCall
+from sentinel.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from sentinel.core.tool_agent_registry import ToolAgentRegistry
@@ -222,13 +221,19 @@ class DialogAgent(BaseAgent):
             logger.debug(f"Prepared {len(tools)} tools for LiteLLM")
 
         llm_config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
-        response = await self.llm.complete(llm_messages, llm_config, task=TaskType.CHAT, tools=tools)
+        response = await self.llm.complete(
+            llm_messages,
+            llm_config,
+            task=TaskType.CHAT,
+            tools=tools,
+        )
         logger.debug(f"DialogAgent response: {len(response.content)} chars")
 
         # Check for native tool calls in response
         if self._tool_executor and response.tool_calls:
             tool_calls = response.tool_calls
-            logger.info(f"Detected {len(tool_calls)} native tool call(s): {[tc['name'] for tc in tool_calls]}")
+            tool_names = [tc["name"] for tc in tool_calls]
+            logger.info(f"Detected {len(tool_calls)} native tool call(s): {tool_names}")
 
             # Convert native format to ToolCall objects for executor
             executor_calls: list[ToolCall] = []
@@ -360,9 +365,21 @@ class DialogAgent(BaseAgent):
         # Factor 3: Keywords in user message (up to +0.2)
         user_lower = user_msg.content.lower()
         importance_keywords = [
-            "important", "urgent", "remember", "always", "never",
-            "error", "problem", "help", "how do i", "why",
-            "decision", "choose", "prefer", "schedule", "remind"
+            "important",
+            "urgent",
+            "remember",
+            "always",
+            "never",
+            "error",
+            "problem",
+            "help",
+            "how do i",
+            "why",
+            "decision",
+            "choose",
+            "prefer",
+            "schedule",
+            "remind",
         ]
         keyword_count = sum(1 for kw in importance_keywords if kw in user_lower)
         if keyword_count > 0:
@@ -425,7 +442,7 @@ class DialogAgent(BaseAgent):
     def _trim_history(self) -> None:
         """Keep conversation history within limits."""
         if len(self.context.conversation) > self._max_history:
-            self.context.conversation = self.context.conversation[-self._max_history:]
+            self.context.conversation = self.context.conversation[-self._max_history :]
 
     async def update_user_profile(self, key: str, value: str) -> None:
         """Update user profile field.
@@ -504,7 +521,11 @@ class DialogAgent(BaseAgent):
         try:
             llm_config = LLMConfig(model=None, max_tokens=10, temperature=0.1)
             messages = [{"role": "user", "content": IMPORTANCE_PROMPT.format(summary=summary)}]
-            response = await self.llm.complete(messages, llm_config, task=TaskType.IMPORTANCE_SCORING)
+            response = await self.llm.complete(
+                messages,
+                llm_config,
+                task=TaskType.IMPORTANCE_SCORING,
+            )
 
             # Parse the response - expect a number
             score_text = response.content.strip()

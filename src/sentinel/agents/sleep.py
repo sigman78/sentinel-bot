@@ -3,10 +3,9 @@
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
+from sentinel.agents.base import AgentConfig, AgentState, BaseAgent, LLMProvider
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
-from sentinel.agents.base import LLMProvider
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
@@ -187,9 +186,6 @@ class SleepAgent(BaseAgent):
         decay_count = 0
 
         try:
-            # Get old memories (older than consolidation window)
-            old_date = datetime.now() - self._consolidation_window
-
             # Note: This requires adding a method to MemoryStore
             # For now, skip this as it needs schema changes
             # In future: await self.memory.decay_importance_before(old_date, factor=0.8)
@@ -219,6 +215,7 @@ class SleepAgent(BaseAgent):
 
             # Parse JSON array from response
             import json
+
             # Handle common LLM output patterns
             if content.startswith("```"):
                 content = content.split("```")[1]

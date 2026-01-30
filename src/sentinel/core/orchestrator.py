@@ -42,7 +42,7 @@ class Orchestrator:
     """Manages agent lifecycles and schedules background tasks."""
 
     def __init__(self) -> None:
-        self._agents: dict[str, "BaseAgent"] = {}
+        self._agents: dict[str, BaseAgent] = {}
         self._tasks: dict[str, ScheduledTask] = {}
         self._running = False
         self._scheduler_task: asyncio.Task[None] | None = None
@@ -128,8 +128,7 @@ class Orchestrator:
         while self._running:
             now = datetime.now()
             pending = [
-                t for t in self._tasks.values()
-                if t.enabled and not t.running and t.next_run <= now
+                t for t in self._tasks.values() if t.enabled and not t.running and t.next_run <= now
             ]
 
             # Sort by priority (higher first)

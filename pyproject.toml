@@ -75,5 +75,10 @@ check_untyped_defs = false
 # 4. Do not enforce strict Optional/None checks
 strict_optional = false
 
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+]
+
 # 5. Allow redefinition of variables
 # allow_redefinition = true

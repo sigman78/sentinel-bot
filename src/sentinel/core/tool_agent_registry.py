@@ -15,11 +15,9 @@ class ToolAgentProtocol(Protocol):
 
     agent_name: str
 
-    def get_capability_description(self) -> str:
-        ...
+    def get_capability_description(self) -> str: ...
 
-    async def process(self, message: Message) -> Message:
-        ...
+    async def process(self, message: Message) -> Message: ...
 
 
 class ToolAgentRegistry:
@@ -116,9 +114,7 @@ class ToolAgentRegistry:
         agent = self._agents.get(agent_name)
         if not agent:
             available = ", ".join(self._agents.keys())
-            raise ValueError(
-                f"Tool agent '{agent_name}' not found. Available: {available}"
-            )
+            raise ValueError(f"Tool agent '{agent_name}' not found. Available: {available}")
 
         logger.info(f"Delegating to {agent_name}: {task[:100]}")
 

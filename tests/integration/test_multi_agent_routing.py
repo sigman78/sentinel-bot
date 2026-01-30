@@ -12,7 +12,7 @@ import pytest
 from sentinel.agents.dialog import DialogAgent
 from sentinel.core.types import ContentType, Message
 from sentinel.llm.cost_tracker import CostTracker
-from sentinel.llm.router import SentinelLLMRouter, TaskType, create_default_router
+from sentinel.llm.router import TaskType, create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 
 
@@ -53,13 +53,15 @@ async def test_multi_agent_same_request_different_routing():
         cost1 = response1.metadata.get("cost_usd", 0.0)
         model1 = response1.metadata.get("model", "unknown")
 
-        results.append({
-            "scenario": "Task-based routing (CHAT=hard)",
-            "model": model1,
-            "cost": cost1,
-            "response_length": len(response1.content),
-            "response_preview": response1.content[:150] + "...",
-        })
+        results.append(
+            {
+                "scenario": "Task-based routing (CHAT=hard)",
+                "model": model1,
+                "cost": cost1,
+                "response_length": len(response1.content),
+                "response_preview": response1.content[:150] + "...",
+            }
+        )
 
         print(f"Model: {model1}")
         print(f"Cost: ${cost1:.4f}")
@@ -79,13 +81,15 @@ async def test_multi_agent_same_request_different_routing():
         cost2 = response2.metadata.get("cost_usd", 0.0)
         model2 = response2.metadata.get("model", "unknown")
 
-        results.append({
-            "scenario": "Budget-constrained (downgraded)",
-            "model": model2,
-            "cost": cost2,
-            "response_length": len(response2.content),
-            "response_preview": response2.content[:150] + "...",
-        })
+        results.append(
+            {
+                "scenario": "Budget-constrained (downgraded)",
+                "model": model2,
+                "cost": cost2,
+                "response_length": len(response2.content),
+                "response_preview": response2.content[:150] + "...",
+            }
+        )
 
         print(f"Model: {model2}")
         print(f"Cost: ${cost2:.4f}")
@@ -100,20 +104,20 @@ async def test_multi_agent_same_request_different_routing():
         from sentinel.llm.base import LLMConfig
 
         config = LLMConfig(model=None, max_tokens=2048, temperature=0.7)
-        messages = [
-            {"role": "user", "content": test_message.content}
-        ]
+        messages = [{"role": "user", "content": test_message.content}]
         response3 = await router3.complete(messages, config, task=TaskType.SIMPLE)
         cost3 = response3.cost_usd
         model3 = response3.model
 
-        results.append({
-            "scenario": "Forced cheap (SIMPLE task)",
-            "model": model3,
-            "cost": cost3,
-            "response_length": len(response3.content),
-            "response_preview": response3.content[:150] + "...",
-        })
+        results.append(
+            {
+                "scenario": "Forced cheap (SIMPLE task)",
+                "model": model3,
+                "cost": cost3,
+                "response_length": len(response3.content),
+                "response_preview": response3.content[:150] + "...",
+            }
+        )
 
         print(f"Model: {model3}")
         print(f"Cost: ${cost3:.4f}")
@@ -135,7 +139,10 @@ async def test_multi_agent_same_request_different_routing():
 
         print("\nCost comparison:")
         for i, result in enumerate(results, 1):
-            savings = ((results[0]["cost"] - result["cost"]) / results[0]["cost"] * 100) if results[0]["cost"] > 0 else 0
+            if results[0]["cost"] > 0:
+                savings = (results[0]["cost"] - result["cost"]) / results[0]["cost"] * 100
+            else:
+                savings = 0
             print(f"{i}. {result['scenario']}")
             print(f"   Model: {result['model']}")
             print(f"   Cost: ${result['cost']:.4f} ({savings:+.1f}% vs baseline)")
@@ -148,13 +155,13 @@ async def test_multi_agent_same_request_different_routing():
 
         assessment_prompt = f"""Compare these three AI responses to: "{test_message.content}"
 
-Response 1 ({results[0]['model']}):
+Response 1 ({results[0]["model"]}):
 {response1.content[:500]}...
 
-Response 2 ({results[1]['model']}):
+Response 2 ({results[1]["model"]}):
 {response2.content[:500]}...
 
-Response 3 ({results[2]['model']}):
+Response 3 ({results[2]["model"]}):
 {response3.content[:500]}...
 
 Rate each response (1-10) on:
@@ -162,7 +169,8 @@ Rate each response (1-10) on:
 - Clarity: Easy to understand
 - Completeness: Covers the topic well
 
-Format: JSON object with keys response1, response2, response3, each containing accuracy, clarity, completeness scores.
+Format: JSON object with keys response1, response2, response3, each containing
+accuracy, clarity, completeness scores.
 """
 
         router_assess = create_default_router()
@@ -256,7 +264,7 @@ async def test_cost_tracking_across_multiple_requests():
         print(f"  Budget used: {summary['percent_used']:.1f}%")
 
         # Check if downgrade triggered
-        if summary['percent_used'] > 80:
+        if summary["percent_used"] > 80:
             print(f"  ⚠️ Budget warning: {summary['percent_used']:.1f}% used")
 
     # Final summary
@@ -281,7 +289,7 @@ async def test_cost_tracking_across_multiple_requests():
     assert len(costs) == len(requests)
     assert all(c > 0 for c in costs)
 
-    if summary['percent_used'] > 80:
+    if summary["percent_used"] > 80:
         print("\n[PASS] Budget warning system working")
     else:
         print("\n[PASS] All requests within budget")
@@ -322,12 +330,14 @@ async def test_task_difficulty_cost_correlation():
 
         response = await router.complete(messages, config, task=task_type)
 
-        results.append({
-            "task": task_type.value,
-            "description": description,
-            "model": response.model,
-            "cost": response.cost_usd,
-        })
+        results.append(
+            {
+                "task": task_type.value,
+                "description": description,
+                "model": response.model,
+                "cost": response.cost_usd,
+            }
+        )
 
         print(f"\n{description}")
         print(f"  Task type: {task_type.value}")
@@ -341,8 +351,10 @@ async def test_task_difficulty_cost_correlation():
 
     for i, result in enumerate(results):
         difficulty = ["Easy", "Intermediate", "Hard"][i]
-        print(f"{difficulty:12s} | {result['task']:20s} | "
-              f"{result['model']:30s} | ${result['cost']:.4f}")
+        print(
+            f"{difficulty:12s} | {result['task']:20s} | "
+            f"{result['model']:30s} | ${result['cost']:.4f}"
+        )
 
     # Generally, harder tasks should use more expensive models
     # (though not guaranteed if only one provider available)

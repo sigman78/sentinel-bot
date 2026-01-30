@@ -43,9 +43,7 @@ class TaskExecutor:
             elif task.task_type == TaskType.WEB_SEARCH:
                 return await self._execute_web_search(task)
             else:
-                return ActionResult(
-                    success=False, error=f"Unknown task type: {task.task_type}"
-                )
+                return ActionResult(success=False, error=f"Unknown task type: {task.task_type}")
         except Exception as e:
             logger.error(f"Task {task.id} execution failed: {e}", exc_info=True)
             return ActionResult(success=False, error=str(e))
@@ -72,9 +70,7 @@ class TaskExecutor:
                 return ActionResult(success=False, error=f"Notification failed: {e}")
         else:
             logger.warning("No notification callback configured")
-            return ActionResult(
-                success=False, error="No notification callback available"
-            )
+            return ActionResult(success=False, error="No notification callback available")
 
     async def _execute_agent_task(self, task: ScheduledTask) -> ActionResult:
         """
@@ -83,9 +79,7 @@ class TaskExecutor:
         TODO: Implement agent delegation.
         """
         logger.warning(f"AGENT_TASK not yet implemented: {task.id}")
-        return ActionResult(
-            success=False, error="AGENT_TASK execution not implemented yet"
-        )
+        return ActionResult(success=False, error="AGENT_TASK execution not implemented yet")
 
     async def _execute_api_call(self, task: ScheduledTask) -> ActionResult:
         """
@@ -94,9 +88,7 @@ class TaskExecutor:
         TODO: Implement HTTP client.
         """
         logger.warning(f"API_CALL not yet implemented: {task.id}")
-        return ActionResult(
-            success=False, error="API_CALL execution not implemented yet"
-        )
+        return ActionResult(success=False, error="API_CALL execution not implemented yet")
 
     async def _execute_web_search(self, task: ScheduledTask) -> ActionResult:
         """
@@ -105,6 +97,4 @@ class TaskExecutor:
         TODO: Implement web search integration.
         """
         logger.warning(f"WEB_SEARCH not yet implemented: {task.id}")
-        return ActionResult(
-            success=False, error="WEB_SEARCH execution not implemented yet"
-        )
+        return ActionResult(success=False, error="WEB_SEARCH execution not implemented yet")

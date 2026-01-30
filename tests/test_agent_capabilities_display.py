@@ -1,7 +1,7 @@
 """Test what capability descriptions Claude sees for agent selection."""
 
-from sentinel.core.tool_agent_registry import ToolAgentRegistry
 from sentinel.agents.agentic_cli import AgenticCliAgent
+from sentinel.core.tool_agent_registry import ToolAgentRegistry
 from sentinel.tools.decl.curl_agent import config as http_agent_config
 from sentinel.tools.decl.file_agent import config as file_agent_config
 
@@ -20,11 +20,11 @@ def test_capabilities_summary_display():
     # Get the capabilities summary
     summary = registry.get_capabilities_summary()
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("CAPABILITIES SUMMARY (what Claude sees):")
-    print("="*80)
+    print("=" * 80)
     print(summary)
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
     # Verify both agents are listed
     assert "HttpAgent" in summary

@@ -50,9 +50,7 @@ async def test_tool_agent_registry():
     assert "weather" in capabilities.lower()
 
     # Test delegation
-    result = await registry.delegate(
-        "WeatherAgent", "weather in Tokyo", global_context={}
-    )
+    result = await registry.delegate("WeatherAgent", "weather in Tokyo", global_context={})
 
     assert isinstance(result, str)
     assert len(result) > 0

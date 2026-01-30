@@ -18,12 +18,12 @@ async def test_vision_message_format():
     """Test that Message.to_llm_format() handles images correctly."""
     # Create a simple 1x1 red pixel PNG
     red_pixel_png = (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00'
-        b'\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8'
-        b'\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\x00\x05\x8f\x1fDC'
-        b'\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00"
+        b"\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8"
+        b"\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\x00\x05\x8f\x1fDC"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
     )
-    image_b64 = base64.b64encode(red_pixel_png).decode('utf-8')
+    image_b64 = base64.b64encode(red_pixel_png).decode("utf-8")
 
     message = Message(
         id=str(uuid4()),
@@ -31,12 +31,7 @@ async def test_vision_message_format():
         role="user",
         content="What color is this pixel?",
         content_type=ContentType.IMAGE,
-        metadata={
-            "images": [{
-                "data": image_b64,
-                "media_type": "image/png"
-            }]
-        }
+        metadata={"images": [{"data": image_b64, "media_type": "image/png"}]},
     )
 
     llm_format = message.to_llm_format()
@@ -68,8 +63,7 @@ async def test_vision_with_claude():
 
     # Check if any provider with multimodal support is available
     multimodal_models = [
-        m for m in router.registry.models.values()
-        if m.multimodal and m.is_available
+        m for m in router.registry.models.values() if m.multimodal and m.is_available
     ]
     if not multimodal_models:
         pytest.skip("No multimodal models configured")
@@ -82,7 +76,7 @@ async def test_vision_with_claude():
         pytest.skip(f"Test image not found at {image_path}")
 
     image_data = image_path.read_bytes()
-    image_b64 = base64.b64encode(image_data).decode('utf-8')
+    image_b64 = base64.b64encode(image_data).decode("utf-8")
 
     message = Message(
         id=str(uuid4()),
@@ -90,12 +84,7 @@ async def test_vision_with_claude():
         role="user",
         content="What do you see in this image? Describe it briefly.",
         content_type=ContentType.IMAGE,
-        metadata={
-            "images": [{
-                "data": image_b64,
-                "media_type": "image/png"
-            }]
-        }
+        metadata={"images": [{"data": image_b64, "media_type": "image/png"}]},
     )
 
     # Convert to LLM format
@@ -125,8 +114,7 @@ async def test_vision_through_dialog_agent():
 
     # Check if any provider with multimodal support is available
     multimodal_models = [
-        m for m in router.registry.models.values()
-        if m.multimodal and m.is_available
+        m for m in router.registry.models.values() if m.multimodal and m.is_available
     ]
     if not multimodal_models:
         pytest.skip("No multimodal models configured")
@@ -146,7 +134,7 @@ async def test_vision_through_dialog_agent():
         pytest.skip(f"Test image not found at {image_path}")
 
     image_data = image_path.read_bytes()
-    image_b64 = base64.b64encode(image_data).decode('utf-8')
+    image_b64 = base64.b64encode(image_data).decode("utf-8")
 
     message = Message(
         id=str(uuid4()),
@@ -154,12 +142,7 @@ async def test_vision_through_dialog_agent():
         role="user",
         content="What do you see in this image?",
         content_type=ContentType.IMAGE,
-        metadata={
-            "images": [{
-                "data": image_b64,
-                "media_type": "image/png"
-            }]
-        }
+        metadata={"images": [{"data": image_b64, "media_type": "image/png"}]},
     )
 
     response = await agent.process(message)

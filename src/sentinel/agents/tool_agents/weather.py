@@ -85,9 +85,7 @@ class WeatherAgent(ToolAgent):
         messages = [
             {
                 "role": "user",
-                "content": EXTRACT_LOCATION_PROMPT.format(
-                    task=task, user_location=user_location
-                ),
+                "content": EXTRACT_LOCATION_PROMPT.format(task=task, user_location=user_location),
             }
         ]
 
@@ -129,12 +127,12 @@ class WeatherAgent(ToolAgent):
                     raise ValueError("Weather API returned unexpected response")
                 return cast(dict[str, Any], data)
 
-        except httpx.TimeoutException:
-            raise TimeoutError(f"Weather API timeout for location: {location}")
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Weather API timeout for location: {location}") from e
         except httpx.HTTPError as e:
-            raise Exception(f"Weather API error: {e}")
-        except json.JSONDecodeError:
-            raise Exception("Failed to parse weather data")
+            raise Exception(f"Weather API error: {e}") from e
+        except json.JSONDecodeError as e:
+            raise Exception("Failed to parse weather data") from e
 
     async def _summarize_weather(self, location: str, data: dict[str, Any]) -> str:
         """Use LLM to create natural language summary of weather data."""
@@ -160,9 +158,9 @@ class WeatherAgent(ToolAgent):
                         "date": day.get("date"),
                         "max_temp_c": day.get("maxtempC"),
                         "min_temp_c": day.get("mintempC"),
-                        "condition": day.get("hourly", [{}])[4].get("weatherDesc", [{}])[0].get(
-                            "value"
-                        ),
+                        "condition": day.get("hourly", [{}])[4]
+                        .get("weatherDesc", [{}])[0]
+                        .get("value"),
                     }
                 )
 
@@ -179,9 +177,7 @@ class WeatherAgent(ToolAgent):
                 }
             ]
 
-            response = await self.llm.complete(
-                messages, llm_config, task=TaskType.SUMMARIZATION
-            )
+            response = await self.llm.complete(messages, llm_config, task=TaskType.SUMMARIZATION)
             return response.content.strip()
 
         except Exception as e:

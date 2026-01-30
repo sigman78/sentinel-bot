@@ -1,7 +1,6 @@
 """Base LLM types and interfaces."""
 
 from dataclasses import dataclass
-from typing import Any
 
 from sentinel.core.typing import JSONDict, ToolCallDict
 

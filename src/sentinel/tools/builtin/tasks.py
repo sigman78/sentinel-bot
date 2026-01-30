@@ -79,7 +79,7 @@ async def add_recurring_task(schedule: str, description: str) -> ActionResult:
 @tool(
     "list_tasks",
     "List all active scheduled tasks",
-    examples=['list_tasks()'],
+    examples=["list_tasks()"],
 )
 async def list_tasks() -> ActionResult:
     """

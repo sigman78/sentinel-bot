@@ -79,7 +79,10 @@ class ScheduleParser:
             return {"pattern": "weekdays", "time": time_str}
 
         # Parse "monday/tuesday/etc 10am"
-        day_pattern = r"^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}):?(\d{2})?\s*(am|pm)?$"
+        day_pattern = (
+            r"^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+"
+            r"(\d{1,2}):?(\d{2})?\s*(am|pm)?$"
+        )
         match = re.match(day_pattern, text)
         if match:
             day, hour, minute, meridiem = match.groups()
@@ -141,7 +144,15 @@ class ScheduleParser:
                 next_run += timedelta(days=1)
             return next_run
 
-        elif pattern in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        elif pattern in [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+        ]:
             # Specific day of week
             day_map = {
                 "monday": 0,

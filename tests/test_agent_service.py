@@ -1,10 +1,8 @@
 """Tests for agent service initialization."""
 
-import pytest
-
-from sentinel.tools.decl import CLI_AGENT_CONFIGS
 from sentinel.core.agent_service import initialize_agents
 from sentinel.core.tool_agent_registry import ToolAgentRegistry
+from sentinel.tools.decl import CLI_AGENT_CONFIGS
 
 
 def test_cli_agent_configs_list():
@@ -19,9 +17,9 @@ def test_cli_agent_configs_list():
 
     # Verify all items are valid configs
     for config in CLI_AGENT_CONFIGS:
-        assert hasattr(config, 'name')
-        assert hasattr(config, 'description')
-        assert hasattr(config, 'tools')
+        assert hasattr(config, "name")
+        assert hasattr(config, "description")
+        assert hasattr(config, "tools")
         assert len(config.tools) > 0
 
 

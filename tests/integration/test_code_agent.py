@@ -99,7 +99,10 @@ print("Fibonacci numbers:", result)
     )
 
     llm.add_response(
-        content="Successfully calculated the first 10 Fibonacci numbers. The script ran without errors and produced the expected sequence: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34].",
+        content=(
+            "Successfully calculated the first 10 Fibonacci numbers. The script ran without "
+            "errors and produced the expected sequence: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]."
+        ),
         task=TaskType.SUMMARIZATION,
     )
 
@@ -146,7 +149,10 @@ print(result)
     )
 
     llm.add_response(
-        content="The script failed with a division by zero error. Exit code 1 indicates the Python interpreter encountered an unhandled exception.",
+        content=(
+            "The script failed with a division by zero error. Exit code 1 indicates the "
+            "Python interpreter encountered an unhandled exception."
+        ),
         task=TaskType.SUMMARIZATION,
     )
 
@@ -190,7 +196,10 @@ print("This won't be printed")
     )
 
     llm.add_response(
-        content="The script execution timed out after exceeding the allowed duration. The operation was terminated to prevent hanging.",
+        content=(
+            "The script execution timed out after exceeding the allowed duration. The "
+            "operation was terminated to prevent hanging."
+        ),
         task=TaskType.SUMMARIZATION,
     )
 
@@ -237,7 +246,7 @@ async def test_code_agent_multiple_tasks(code_agent):
         # Mock script generation
         llm.add_response(
             content=f"""```python
-# Task {i+1}: {task_desc}
+# Task {i + 1}: {task_desc}
 print("{expected_output}")
 ```""",
             task=TaskType.TOOL_CALL,
@@ -283,7 +292,7 @@ async def test_code_agent_script_extraction(code_agent):
     for i, code_format in enumerate(code_formats):
         llm.add_response(content=code_format, task=TaskType.TOOL_CALL)
         llm.add_response(
-            content=f"Format {i+1} executed successfully",
+            content=f"Format {i + 1} executed successfully",
             task=TaskType.SUMMARIZATION,
         )
 
@@ -291,7 +300,7 @@ async def test_code_agent_script_extraction(code_agent):
             id=str(uuid4()),
             timestamp=datetime.now(),
             role="user",
-            content=f"Test format {i+1}",
+            content=f"Test format {i + 1}",
             content_type=ContentType.TEXT,
         )
 
@@ -351,7 +360,7 @@ print("Test output line 3")
         content_type=ContentType.TEXT,
     )
 
-    response = await agent.process(message)
+    await agent.process(message)
 
     # Verify script was saved
     scripts = list(agent._workspace.scripts_dir.glob("*.py"))

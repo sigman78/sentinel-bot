@@ -80,6 +80,7 @@ def test_user_profile_update_fields():
 
     # Small delay to ensure timestamp changes
     import time
+
     time.sleep(0.01)
 
     profile.update_fields(

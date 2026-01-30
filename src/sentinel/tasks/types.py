@@ -48,6 +48,7 @@ class ScheduledTask:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ScheduledTask":
         """Create from dict loaded from storage."""
+
         # Helper to handle both datetime objects and ISO strings
         def _to_datetime(val: Any) -> datetime | None:
             if val is None:

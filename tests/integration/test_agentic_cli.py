@@ -1,6 +1,5 @@
 """Integration tests for agentic CLI agents."""
 
-import os
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
@@ -8,9 +7,9 @@ from uuid import uuid4
 import pytest
 
 from sentinel.agents.agentic_cli import AgenticCliAgent
-from sentinel.tools.decl.file_agent import config as file_agent_config
 from sentinel.core.types import ContentType, Message
 from sentinel.llm.router import create_default_router
+from sentinel.tools.decl.file_agent import config as file_agent_config
 
 
 @pytest.mark.integration
@@ -23,9 +22,7 @@ async def test_file_agent_no_files_found():
     llm = router
 
     # Create agent with current directory as working dir (root has no .py files)
-    agent = AgenticCliAgent(
-        config=file_agent_config, llm=llm, working_dir=str(Path.cwd())
-    )
+    agent = AgenticCliAgent(config=file_agent_config, llm=llm, working_dir=str(Path.cwd()))
 
     # Test task: find Python files in current directory (should find none at root)
     message = Message(
@@ -63,9 +60,7 @@ async def test_file_agent_finds_files():
     if not src_dir.exists():
         pytest.skip("src directory not found")
 
-    agent = AgenticCliAgent(
-        config=file_agent_config, llm=llm, working_dir=str(src_dir)
-    )
+    agent = AgenticCliAgent(config=file_agent_config, llm=llm, working_dir=str(src_dir))
 
     # Test task: find Python files in src directory
     message = Message(
@@ -102,9 +97,7 @@ async def test_file_agent_read_file():
     test_file.write_text(test_content)
 
     try:
-        agent = AgenticCliAgent(
-            config=file_agent_config, llm=llm, working_dir=str(Path.cwd())
-        )
+        agent = AgenticCliAgent(config=file_agent_config, llm=llm, working_dir=str(Path.cwd()))
 
         message = Message(
             id=str(uuid4()),
@@ -135,9 +128,7 @@ async def test_file_agent_error_handling():
         pytest.skip("No LLM providers configured")
 
     llm = router
-    agent = AgenticCliAgent(
-        config=file_agent_config, llm=llm, working_dir=str(Path.cwd())
-    )
+    agent = AgenticCliAgent(config=file_agent_config, llm=llm, working_dir=str(Path.cwd()))
 
     # Try to read a non-existent file
     message = Message(
@@ -185,9 +176,7 @@ async def test_file_agent_safety_limits():
         ),
     )
 
-    agent = AgenticCliAgent(
-        config=strict_config, llm=llm, working_dir=str(Path.cwd())
-    )
+    agent = AgenticCliAgent(config=strict_config, llm=llm, working_dir=str(Path.cwd()))
 
     # Complex task that might hit limits
     message = Message(

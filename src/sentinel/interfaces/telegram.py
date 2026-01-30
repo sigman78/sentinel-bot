@@ -131,7 +131,6 @@ class TelegramInterface(Interface):
 
         logger.info(f"Initialized with identity: {settings.identity_path}")
 
-
     async def start(self) -> None:
         """Start Telegram bot."""
         if not self.token:
@@ -157,12 +156,8 @@ class TelegramInterface(Interface):
         self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
         self.app.add_handler(CommandHandler("ctx", self._handle_ctx))
         self.app.add_handler(CommandHandler("kill", self._handle_kill))
-        self.app.add_handler(
-            MessageHandler(filters.PHOTO, self._handle_photo)
-        )
-        self.app.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
-        )
+        self.app.add_handler(MessageHandler(filters.PHOTO, self._handle_photo))
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
 
         logger.info(f"Starting Telegram bot for owner {self.owner_id}")
         await self.app.initialize()
@@ -295,15 +290,11 @@ class TelegramInterface(Interface):
                     reply_to_message_id=reply_to,
                 )
             else:
-                await app.bot.send_message(
-                    chat_id=chat_id, text=text, reply_to_message_id=reply_to
-                )
+                await app.bot.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to)
         except Exception as e:
             logger.warning(f"Markdown failed, falling back to plain: {e}")
             try:
-                await app.bot.send_message(
-                    chat_id=chat_id, text=text, reply_to_message_id=reply_to
-                )
+                await app.bot.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to)
             except Exception as e2:
                 logger.error(f"Failed to send message: {e2}", exc_info=True)
 
@@ -345,9 +336,7 @@ class TelegramInterface(Interface):
             if "Senti" in first_line:
                 name = "Senti"
 
-        await update.message.reply_text(
-            f"Hey! I'm {name}, ready to help. Send /help for commands."
-        )
+        await update.message.reply_text(f"Hey! I'm {name}, ready to help. Send /help for commands.")
 
     async def _handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /help command."""
@@ -384,8 +373,8 @@ Just send a message to chat with me."""
         conv_len = len(self.agent.context.conversation) if self.agent else 0
 
         status = f"""*Status*
-Agent: {'Active' if self.agent else 'Not initialized'}
-Memory: {'Connected' if self.memory else 'Disconnected'}
+Agent: {"Active" if self.agent else "Not initialized"}
+Memory: {"Connected" if self.memory else "Disconnected"}
 Providers: {providers}
 Conversation: {conv_len} messages"""
 
@@ -438,9 +427,7 @@ Conversation: {conv_len} messages"""
 
             # Count episodic memories
             try:
-                async with self.memory.conn.execute(
-                    "SELECT COUNT(*) FROM episodes"
-                ) as cursor:
+                async with self.memory.conn.execute("SELECT COUNT(*) FROM episodes") as cursor:
                     row = await cursor.fetchone()
                     episodic_count = row[0] if row else 0
             except Exception:
@@ -461,14 +448,12 @@ Conversation: {conv_len} messages"""
             try:
                 yesterday = datetime.now() - timedelta(days=1)
                 async with self.memory.conn.execute(
-                    "SELECT summary, timestamp FROM episodes WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
-                    (yesterday,)
+                    "SELECT summary, timestamp FROM episodes WHERE timestamp > ? "
+                    "ORDER BY timestamp DESC LIMIT 5",
+                    (yesterday,),
                 ) as cursor:
                     async for row in cursor:
-                        recent_memories.append({
-                            "content": row[0],
-                            "timestamp": row[1]
-                        })
+                        recent_memories.append({"content": row[0], "timestamp": row[1]})
             except Exception:
                 pass
 
@@ -632,9 +617,7 @@ Conversation: {conv_len} messages"""
         else:
             await update.message.reply_text(f"Error: {result.error}")
 
-    async def _handle_schedule(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
+    async def _handle_schedule(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /schedule command - schedule recurring reminder."""
         if not update.effective_user or not self._is_owner(update.effective_user.id):
             return
@@ -656,7 +639,10 @@ Conversation: {conv_len} messages"""
         # Parse schedule pattern - could be "daily 9am" or "weekdays 6pm" etc
         # We need to find where the pattern ends and task description begins
         # For simplicity, assume pattern is first 1-2 args
-        if len(context.args) >= 3 and context.args[1].replace(":", "").replace("am", "").replace("pm", "").replace(".", "").isdigit():
+        time_token = (
+            context.args[1].replace(":", "").replace("am", "").replace("pm", "").replace(".", "")
+        )
+        if len(context.args) >= 3 and time_token.isdigit():
             # Pattern is 2 words: "daily 9am"
             schedule = f"{context.args[0]} {context.args[1]}"
             description = " ".join(context.args[2:])
@@ -680,8 +666,7 @@ Conversation: {conv_len} messages"""
             task_id = result.data.get("task_id", "")
             next_run = result.data.get("next_run", "")
             await update.message.reply_text(
-                f"Scheduled task {task_id}: {description}\n"
-                f"Next run: {next_run[:16]}"
+                f"Scheduled task {task_id}: {description}\nNext run: {next_run[:16]}"
             )
         else:
             await update.message.reply_text(f"Error: {result.error}")
@@ -721,9 +706,7 @@ Conversation: {conv_len} messages"""
             return
 
         if not context.args:
-            await update.message.reply_text(
-                "Usage: /cancel <task_id>\n" "Use /tasks to see task IDs."
-            )
+            await update.message.reply_text("Usage: /cancel <task_id>\nUse /tasks to see task IDs.")
             return
 
         task_id = context.args[0]
@@ -749,9 +732,9 @@ Conversation: {conv_len} messages"""
 
         for i, msg in enumerate(self.agent.context.conversation[-10:], 1):  # Last 10 messages
             metadata_str = f" (meta: {msg.metadata})" if msg.metadata else ""
-            conv_dump.append(
-                f"{i}. [{msg.role}] {msg.content[:100]}{'...' if len(msg.content) > 100 else ''}{metadata_str}"
-            )
+            content_preview = msg.content[:100]
+            suffix = "..." if len(msg.content) > 100 else ""
+            conv_dump.append(f"{i}. [{msg.role}] {content_preview}{suffix}{metadata_str}")
 
         context_info = f"""*Context Debug*
 
@@ -762,7 +745,7 @@ Showing: Last {min(10, conv_count)} messages
 
 *Recent Messages:*
 ```
-{chr(10).join(conv_dump) if conv_dump else '(empty)'}
+{chr(10).join(conv_dump) if conv_dump else "(empty)"}
 ```
 
 *Agent State:*
@@ -783,7 +766,9 @@ Agenda Path: `{self.agent._agenda_path}`
             return
 
         logger.info("Received /kill command, initiating graceful shutdown")
-        await update.message.reply_text("Shutting down gracefully... Saving memories and disconnecting.")
+        await update.message.reply_text(
+            "Shutting down gracefully... Saving memories and disconnecting."
+        )
 
         # Signal the shutdown event
         self._shutdown_event.set()
@@ -832,13 +817,9 @@ Agenda Path: `{self.agent._agenda_path}`
 
         # Get recent conversation context (last 3 messages)
         recent = self.agent.context.conversation[-3:]
-        has_recent_question = any(
-            "?" in msg.content and msg.role == "user"
-            for msg in recent
-        )
+        has_recent_question = any("?" in msg.content and msg.role == "user" for msg in recent)
         last_user_message = next(
-            (msg.content for msg in reversed(recent) if msg.role == "user"),
-            None
+            (msg.content for msg in reversed(recent) if msg.role == "user"), None
         )
 
         if has_recent_question and last_user_message:
@@ -854,7 +835,8 @@ Agenda Path: `{self.agent._agenda_path}`
         elif last_user_message:
             # Recent conversation but no question
             return (
-                f"The user sent me an image. We were just discussing: '{last_user_message[:100]}...'. "
+                f"The user sent me an image. We were just discussing: "
+                f"'{last_user_message[:100]}...'. "
                 f"This might be related, or it could be a new topic. "
                 f"I should look at the image and react naturally - is it funny? Interesting? "
                 f"Does it relate to what we talked about? "
@@ -896,15 +878,10 @@ Agenda Path: `{self.agent._agenda_path}`
             photo_bytes.seek(0)
 
             # Convert to base64
-            image_data = base64.b64encode(photo_bytes.read()).decode('utf-8')
+            image_data = base64.b64encode(photo_bytes.read()).decode("utf-8")
 
             # Build contextual prompt based on caption and conversation context
-            if update.message.caption:
-                # User provided explicit caption/question
-                caption = update.message.caption
-            else:
-                # No caption - build context-aware prompt
-                caption = self._build_image_context_prompt()
+            caption = update.message.caption or self._build_image_context_prompt()
 
             logger.debug(f"USER: [Image] {caption}")
 
@@ -917,11 +894,9 @@ Agenda Path: `{self.agent._agenda_path}`
                 content_type=ContentType.IMAGE,
                 metadata={
                     "telegram_user_id": update.effective_user.id,
-                    "images": [{
-                        "data": image_data,
-                        "media_type": "image/jpeg",
-                        "source": "telegram"
-                    }]
+                    "images": [
+                        {"data": image_data, "media_type": "image/jpeg", "source": "telegram"}
+                    ],
                 },
             )
 
@@ -951,9 +926,7 @@ Agenda Path: `{self.agent._agenda_path}`
 
         except Exception as e:
             logger.error(f"Error handling photo: {e}", exc_info=True)
-            await update.message.reply_text(
-                "Sorry, I encountered an error processing your image."
-            )
+            await update.message.reply_text("Sorry, I encountered an error processing your image.")
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages."""

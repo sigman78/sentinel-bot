@@ -2,8 +2,8 @@
 
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ActionResult
@@ -184,12 +184,8 @@ class TaskManager:
                 try:
                     # Calculate from task's scheduled time, not current time
                     # This ensures proper advancement even when task is overdue
-                    next_run = ScheduleParser.calculate_next_run(
-                        task.schedule_data, task.next_run
-                    )
-                    await self.memory.update_task(
-                        task.id, last_run=now, next_run=next_run
-                    )
+                    next_run = ScheduleParser.calculate_next_run(task.schedule_data, task.next_run)
+                    await self.memory.update_task(task.id, last_run=now, next_run=next_run)
                     logger.info(f"Rescheduled task {task.id} for {next_run}")
                 except Exception as e:
                     logger.error(f"Failed to reschedule task {task.id}: {e}")

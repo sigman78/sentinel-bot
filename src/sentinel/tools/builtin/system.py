@@ -10,7 +10,7 @@ from sentinel.tools.registry import register_tool
 @tool(
     "get_current_time",
     "Get the current date and time",
-    examples=['get_current_time()'],
+    examples=["get_current_time()"],
 )
 async def get_current_time() -> ActionResult:
     """

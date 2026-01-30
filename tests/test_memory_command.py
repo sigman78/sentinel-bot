@@ -1,13 +1,14 @@
 """Tests for /memory command functionality."""
 
-import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from sentinel.interfaces.telegram import TelegramInterface
 from sentinel.memory.base import MemoryEntry, MemoryType
-from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.memory.profile import UserProfile
+from sentinel.memory.store import SQLiteMemoryStore
 
 
 @pytest.mark.asyncio
@@ -94,7 +95,8 @@ async def test_memory_command_with_data(tmp_path: Path):
     recent_memories = []
     yesterday = datetime.now() - timedelta(days=1)
     async with memory.conn.execute(
-        "SELECT summary, timestamp FROM episodes WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
+        "SELECT summary, timestamp FROM episodes "
+        "WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
         (yesterday,),
     ) as cursor:
         async for row in cursor:
@@ -144,7 +146,8 @@ async def test_memory_command_recent_filter(tmp_path: Path):
     recent_memories = []
     yesterday = datetime.now() - timedelta(days=1)
     async with memory.conn.execute(
-        "SELECT summary, timestamp FROM episodes WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
+        "SELECT summary, timestamp FROM episodes "
+        "WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 5",
         (yesterday,),
     ) as cursor:
         async for row in cursor:

@@ -1,6 +1,5 @@
 """Integration tests for agenda tools with real DialogAgent."""
 
-
 import pytest
 
 from sentinel.agents.dialog import DialogAgent

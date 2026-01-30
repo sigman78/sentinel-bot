@@ -50,7 +50,11 @@ def _parse_agenda(content: str) -> dict[str, str]:
 
 def _rebuild_agenda(sections: dict[str, str]) -> str:
     """Rebuild agenda content from sections, preserving structure."""
-    lines = ["# Project agenda", "This document used to track long and short term plans, priorities, context", ""]
+    lines = [
+        "# Project agenda",
+        "This document used to track long and short term plans, priorities, context",
+        "",
+    ]
 
     # Expected section order
     section_order = [
@@ -75,7 +79,7 @@ def _rebuild_agenda(sections: dict[str, str]) -> str:
 @tool(
     "check_agenda",
     "Read the current agenda to understand tasks, plans, and notes",
-    examples=['check_agenda()'],
+    examples=["check_agenda()"],
 )
 async def check_agenda() -> ActionResult:
     """
@@ -114,7 +118,10 @@ async def check_agenda() -> ActionResult:
     "update_agenda",
     "Update specific sections of the agenda or append notes",
     examples=[
-        'update_agenda(section="Current tasks and goals", content="- Implement agenda tools\\n- Test integration")',
+        (
+            'update_agenda(section="Current tasks and goals", '
+            'content="- Implement agenda tools\\n- Test integration")'
+        ),
         'update_agenda(section="Work notes", content="Completed Phase 6.6 tool calling")',
     ],
 )

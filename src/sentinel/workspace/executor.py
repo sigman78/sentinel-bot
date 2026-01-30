@@ -31,9 +31,7 @@ class ScriptExecutor:
         self._timeout_seconds = 30.0  # Default timeout
         self._max_output_bytes = 1_000_000  # 1MB output limit
 
-    async def execute(
-        self, script_path: Path, timeout: float | None = None
-    ) -> ExecutionResult:
+    async def execute(self, script_path: Path, timeout: float | None = None) -> ExecutionResult:
         """Execute script with safety constraints."""
         # Validate script is in workspace
         if not self.workspace.is_path_safe(script_path):

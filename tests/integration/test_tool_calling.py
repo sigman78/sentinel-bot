@@ -12,7 +12,6 @@ from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tasks.manager import TaskManager
 from sentinel.tools.builtin import register_all_builtin_tools
 from sentinel.tools.builtin.tasks import set_task_manager
-from sentinel.tools.registry import ToolRegistry
 
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
@@ -48,13 +47,13 @@ async def task_manager(memory, notification_log):
 @pytest.fixture
 def tool_registry(task_manager):
     """Create and populate tool registry."""
-    registry = ToolRegistry()
     # Register builtin tools
     register_all_builtin_tools()
     set_task_manager(task_manager)
 
     # Return global registry
     from sentinel.tools.registry import get_global_registry
+
     return get_global_registry()
 
 
@@ -204,7 +203,7 @@ async def test_tool_call_parsing_from_llm_output():
     from sentinel.tools.parser import ToolParser
 
     # Test JSON code block
-    output1 = '''
+    output1 = """
 I'll set that reminder for you.
 
 ```json
@@ -216,26 +215,26 @@ I'll set that reminder for you.
     }
 }
 ```
-'''
+"""
     calls = ToolParser.extract_calls(output1)
     assert len(calls) == 1
     assert calls[0].tool_name == "add_reminder"
     assert calls[0].arguments["delay"] == "5m"
 
     # Test plain code block
-    output2 = '''
+    output2 = """
 ```
 {"tool": "list_tasks", "args": {}}
 ```
-'''
+"""
     calls = ToolParser.extract_calls(output2)
     assert len(calls) == 1
     assert calls[0].tool_name == "list_tasks"
 
     # Test inline JSON
-    output3 = '''
+    output3 = """
 Here's what I'll do: {"tool": "get_current_time", "args": {}}
-'''
+"""
     calls = ToolParser.extract_calls(output3)
     assert len(calls) == 1
     assert calls[0].tool_name == "get_current_time"
