@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta
 
+import pytest
+
 from sentinel.interfaces.telegram import TelegramInterface
 
 
@@ -72,3 +74,59 @@ def test_should_quote_reply_boundary():
     now = datetime.now()
     interface._last_message_time = now - timedelta(seconds=300)
     assert interface._should_quote_reply(now)
+
+
+@pytest.mark.asyncio
+async def test_typing_indicator():
+    """Typing indicator should send actions periodically during long operations."""
+    import asyncio
+
+    interface = TelegramInterface.__new__(TelegramInterface)
+
+    # Mock chat that tracks send_action calls
+    class MockChat:
+        def __init__(self):
+            self.typing_count = 0
+
+        async def send_action(self, action):
+            self.typing_count += 1
+
+    chat = MockChat()
+
+    # Simulate a long-running operation (10 seconds)
+    async def long_operation():
+        await asyncio.sleep(10)
+
+    # Use typing indicator during operation
+    async with interface._typing_indicator(chat):
+        await long_operation()
+
+    # Should have sent typing action at least twice
+    # At 0s, 4.5s, 9s = 3 times minimum
+    assert chat.typing_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_typing_indicator_cancels_on_error():
+    """Typing indicator should clean up even if operation fails."""
+    import asyncio
+
+    interface = TelegramInterface.__new__(TelegramInterface)
+
+    class MockChat:
+        async def send_action(self, action):
+            pass
+
+    chat = MockChat()
+
+    # Simulate an operation that raises an error
+    try:
+        async with interface._typing_indicator(chat):
+            raise ValueError("Test error")
+    except ValueError:
+        pass
+
+    # Give a moment for cleanup
+    await asyncio.sleep(0.1)
+
+    # Should not raise any errors - context manager handled cleanup

@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Any
@@ -242,6 +243,30 @@ Format your responses with appropriate markdown for better readability."""
 
     def _is_owner(self, user_id: int) -> bool:
         return user_id == self.owner_id
+
+    @asynccontextmanager
+    async def _typing_indicator(self, chat: Any):
+        """Context manager that keeps typing indicator alive during long operations.
+
+        Telegram typing indicators expire after 5 seconds, so this periodically
+        resends the typing action every 4.5 seconds to maintain the indicator.
+        """
+
+        async def send_typing_periodically():
+            try:
+                while True:
+                    await chat.send_action("typing")
+                    await asyncio.sleep(4.5)  # Refresh before 5s timeout
+            except asyncio.CancelledError:
+                pass
+
+        task = asyncio.create_task(send_typing_periodically())
+        try:
+            yield
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     def _should_quote_reply(self, message_time: datetime) -> bool:
         """Determine if we should quote-reply based on message timing.
@@ -614,8 +639,6 @@ Conversation: {conv_len} messages"""
         self._orchestrator.mark_activity()
 
         try:
-            await update.message.chat.send_action("typing")
-
             logger.info(f"CODE REQUEST: {task}")
 
             # Create message for code agent
@@ -628,8 +651,9 @@ Conversation: {conv_len} messages"""
                 metadata={"telegram_user_id": update.effective_user.id},
             )
 
-            # Execute code task
-            response = await self._code_agent.process(message)
+            # Execute code task with persistent typing indicator
+            async with self._typing_indicator(update.message.chat):
+                response = await self._code_agent.process(message)
 
             logger.info(f"CODE COMPLETE: {response.content[:100]}")
 
@@ -960,8 +984,9 @@ Agenda Path: `{self.agent._agenda_path}`
                 },
             )
 
-            await update.message.chat.send_action("typing")
-            response = await self.agent.process(message)
+            # Process with persistent typing indicator
+            async with self._typing_indicator(update.message.chat):
+                response = await self.agent.process(message)
 
             # Log outgoing response
             if len(response.content) > 200:
@@ -1018,8 +1043,9 @@ Agenda Path: `{self.agent._agenda_path}`
         )
 
         try:
-            await update.message.chat.send_action("typing")
-            response = await self.agent.process(message)
+            # Process with persistent typing indicator
+            async with self._typing_indicator(update.message.chat):
+                response = await self.agent.process(message)
 
             # Log outgoing response
             if len(response.content) > 200:
