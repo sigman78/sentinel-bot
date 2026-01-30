@@ -1,6 +1,8 @@
 """Awareness agent - proactive monitoring and notifications."""
 
-from collections.abc import Callable
+import inspect
+from collections.abc import Awaitable, Callable
+from typing import Any
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -45,7 +47,7 @@ class AwarenessAgent(BaseAgent):
         self,
         llm: LLMProvider,
         memory: MemoryStore,
-        notify_callback: Callable[[str], None] | None = None,
+        notify_callback: Callable[[str], Awaitable[None] | None] | None = None,
     ):
         config = AgentConfig(
             agent_type=AgentType.AWARENESS,
@@ -121,7 +123,7 @@ class AwarenessAgent(BaseAgent):
     async def check_all(self) -> list[str]:
         """Check all reminders and monitors, return notifications."""
         self.state = AgentState.ACTIVE
-        notifications = []
+        notifications: list[str] = []
         now = datetime.now()
 
         # Check reminders
@@ -165,7 +167,7 @@ class AwarenessAgent(BaseAgent):
         if self._notify_callback:
             try:
                 result = self._notify_callback(message)
-                if hasattr(result, "__await__"):
+                if inspect.isawaitable(result):
                     await result
             except Exception as e:
                 logger.warning(f"Notification callback failed: {e}")
@@ -179,7 +181,7 @@ class AwarenessAgent(BaseAgent):
         self._pending_notifications.clear()
         return pending
 
-    def list_reminders(self) -> list[dict]:
+    def list_reminders(self) -> list[dict[str, Any]]:
         """List all active reminders."""
         return [
             {
@@ -191,7 +193,7 @@ class AwarenessAgent(BaseAgent):
             for r in self._reminders.values()
         ]
 
-    def list_monitors(self) -> list[dict]:
+    def list_monitors(self) -> list[dict[str, Any]]:
         """List all active monitors."""
         return [
             {"id": m.id, "name": m.name, "interval": str(m.interval)}

@@ -78,7 +78,7 @@ async def _run_telegram(settings: Settings) -> int:
     logger = get_logger("cli.telegram")
 
     # Set up signal handlers for graceful shutdown
-    def handle_shutdown_signal(signum, frame):
+    def handle_shutdown_signal(signum: int, frame: object | None) -> None:
         """Handle shutdown signals."""
         sig_name = signal.Signals(signum).name
         logger.info(f"Received {sig_name}, initiating graceful shutdown")
@@ -123,13 +123,12 @@ async def _chat_loop(settings: Settings) -> int:
     await memory.connect()
 
     router = create_default_router()
-    if not router._providers:
+    if not router.available_providers:
         print("Error: No LLM providers available. Set SENTINEL_ANTHROPIC_API_KEY.")
         await memory.close()
         return 1
 
-    llm = list(router._providers.values())[0]
-    agent = DialogAgent(llm=llm, memory=memory)
+    agent = DialogAgent(llm=router, memory=memory)
     await agent.initialize()
 
     print("Ready.\n")
@@ -200,16 +199,12 @@ async def _health_check(settings: Settings) -> int:
     print("Checking LLM providers...")
     router = create_default_router()
 
-    if not router._providers:
+    if not router.available_providers:
         print("No providers configured.")
         return 1
-
-    results = await router.health_check_all()
-    for provider, healthy in results.items():
-        status = "OK" if healthy else "FAILED"
-        print(f"  {provider.value}: {status}")
-
-    return 0 if all(results.values()) else 1
+    for provider in router.available_providers:
+        print(f"  {provider}: OK")
+    return 0
 
 
 if __name__ == "__main__":

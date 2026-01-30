@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+from sentinel.core.typing import JSONDict, ToolCallDict
+
 
 @dataclass
 class LLMConfig:
@@ -24,5 +26,5 @@ class LLMResponse:
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
-    tool_calls: list[dict[str, Any]] | None = None
-    metadata: dict | None = None
+    tool_calls: list[ToolCallDict] | None = None
+    metadata: JSONDict | None = None

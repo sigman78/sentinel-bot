@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class TaskType(Enum):
@@ -22,14 +23,14 @@ class ScheduledTask:
     task_type: TaskType
     description: str
     schedule_type: str  # 'once' | 'recurring'
-    schedule_data: dict  # {"delay": "5m"} | {"pattern": "daily", "time": "09:00"}
-    execution_data: dict | None
+    schedule_data: dict[str, Any]  # {"delay": "5m"} | {"pattern": "daily", "time": "09:00"}
+    execution_data: dict[str, Any] | None
     enabled: bool
     created_at: datetime
     last_run: datetime | None
     next_run: datetime
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for storage."""
         return {
             "id": self.id,
@@ -45,10 +46,10 @@ class ScheduledTask:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ScheduledTask":
+    def from_dict(cls, data: dict[str, Any]) -> "ScheduledTask":
         """Create from dict loaded from storage."""
         # Helper to handle both datetime objects and ISO strings
-        def _to_datetime(val):
+        def _to_datetime(val: Any) -> datetime | None:
             if val is None:
                 return None
             if isinstance(val, datetime):

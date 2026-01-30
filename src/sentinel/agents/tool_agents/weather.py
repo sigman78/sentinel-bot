@@ -1,10 +1,11 @@
 """Weather agent - provides weather information via wttr.in API."""
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
+from sentinel.agents.base import LLMProvider
 from sentinel.agents.tool_agent import ToolAgent
 from sentinel.core.logging import get_logger
 from sentinel.llm.base import LLMConfig
@@ -43,12 +44,12 @@ class WeatherAgent(ToolAgent):
     agent_name = "WeatherAgent"
     capability_description = "I can check current weather and forecasts for any location worldwide"
 
-    def __init__(self, llm):
+    def __init__(self, llm: LLMProvider):
         super().__init__(llm)
         self._api_base = "https://wttr.in"
         self._timeout = 10.0
 
-    async def execute_task(self, task: str, global_context: dict) -> str:
+    async def execute_task(self, task: str, global_context: dict[str, Any]) -> str:
         """Execute weather query.
 
         Args:
@@ -72,7 +73,7 @@ class WeatherAgent(ToolAgent):
 
         return summary
 
-    async def _extract_location(self, task: str, global_context: dict) -> str:
+    async def _extract_location(self, task: str, global_context: dict[str, Any]) -> str:
         """Use LLM to extract location from natural language request."""
         user_location = "unknown"
         if "user_profile" in global_context:
@@ -124,7 +125,9 @@ class WeatherAgent(ToolAgent):
                 if "error" in data:
                     raise ValueError(f"Invalid location: {location}")
 
-                return data
+                if not isinstance(data, dict):
+                    raise ValueError("Weather API returned unexpected response")
+                return cast(dict[str, Any], data)
 
         except httpx.TimeoutException:
             raise TimeoutError(f"Weather API timeout for location: {location}")
@@ -133,13 +136,13 @@ class WeatherAgent(ToolAgent):
         except json.JSONDecodeError:
             raise Exception("Failed to parse weather data")
 
-    async def _summarize_weather(self, location: str, data: dict) -> str:
+    async def _summarize_weather(self, location: str, data: dict[str, Any]) -> str:
         """Use LLM to create natural language summary of weather data."""
+        current_condition = data.get("current_condition", [{}])[0]
+        weather = data.get("weather", [{}])
+
         try:
             # Extract key data from wttr.in response
-            current_condition = data.get("current_condition", [{}])[0]
-            weather = data.get("weather", [{}])
-
             current_summary = {
                 "temp_c": current_condition.get("temp_C"),
                 "temp_f": current_condition.get("temp_F"),

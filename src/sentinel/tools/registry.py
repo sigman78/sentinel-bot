@@ -1,6 +1,9 @@
 """Tool registry for managing available tools."""
 
+from typing import Any
+
 from sentinel.core.logging import get_logger
+from sentinel.core.typing import ToolSpec
 from sentinel.tools.base import Tool
 
 logger = get_logger("tools.registry")
@@ -9,7 +12,7 @@ logger = get_logger("tools.registry")
 class ToolRegistry:
     """Central registry for all available tools."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
 
     def register(self, tool: Tool) -> None:
@@ -71,7 +74,7 @@ After tool execution, you'll receive results and can respond naturally to the us
         """Check if tool exists."""
         return name in self._tools
 
-    def to_openai_tools(self) -> list[dict]:
+    def to_openai_tools(self) -> list[ToolSpec]:
         """
         Get all tools in OpenAI function calling format.
 
@@ -80,7 +83,7 @@ After tool execution, you'll receive results and can respond naturally to the us
         """
         return [tool.to_openai_function() for tool in self._tools.values()]
 
-    def to_anthropic_tools(self) -> list[dict]:
+    def to_anthropic_tools(self) -> list[ToolSpec]:
         """
         Get all tools in Anthropic tool use format.
 

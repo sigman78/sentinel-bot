@@ -120,7 +120,7 @@ async def cancel_task(task_id: str) -> ActionResult:
 
 def register_task_tools() -> None:
     """Register task management tools with the global registry."""
-    register_tool(add_reminder._tool)  # type: ignore
-    register_tool(add_recurring_task._tool)  # type: ignore
-    register_tool(list_tasks._tool)  # type: ignore
-    register_tool(cancel_task._tool)  # type: ignore
+    register_tool(add_reminder._tool)  # type: ignore[attr-defined]
+    register_tool(add_recurring_task._tool)  # type: ignore[attr-defined]
+    register_tool(list_tasks._tool)  # type: ignore[attr-defined]
+    register_tool(cancel_task._tool)  # type: ignore[attr-defined]

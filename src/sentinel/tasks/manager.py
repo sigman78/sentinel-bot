@@ -3,6 +3,7 @@
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from uuid import uuid4
+from typing import Any
 
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ActionResult
@@ -76,7 +77,7 @@ class TaskManager:
         schedule: str,
         task_type: TaskType,
         description: str,
-        execution_data: dict | None = None,
+        execution_data: dict[str, Any] | None = None,
     ) -> ActionResult:
         """
         Add a recurring task.
@@ -118,7 +119,7 @@ class TaskManager:
             logger.error(f"Failed to create recurring task: {e}", exc_info=True)
             return ActionResult(success=False, error=str(e))
 
-    async def list_tasks(self) -> list[dict]:
+    async def list_tasks(self) -> list[dict[str, Any]]:
         """
         List all active tasks.
 

@@ -1,13 +1,25 @@
 """Tool agent registry - manages pool of specialized agents."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ContentType, Message
 
 logger = get_logger("core.tool_agent_registry")
+
+
+class ToolAgentProtocol(Protocol):
+    """Minimal protocol for tool agents registered in the registry."""
+
+    agent_name: str
+
+    def get_capability_description(self) -> str:
+        ...
+
+    async def process(self, message: Message) -> Message:
+        ...
 
 
 class ToolAgentRegistry:
@@ -23,10 +35,10 @@ class ToolAgentRegistry:
     - process(message: Message) -> Message
     """
 
-    def __init__(self):
-        self._agents: dict[str, Any] = {}
+    def __init__(self) -> None:
+        self._agents: dict[str, ToolAgentProtocol] = {}
 
-    def register(self, agent: Any) -> None:
+    def register(self, agent: ToolAgentProtocol) -> None:
         """Register a specialized agent.
 
         Args:
@@ -46,7 +58,7 @@ class ToolAgentRegistry:
         self._agents[agent_name] = agent
         logger.info(f"Registered agent: {agent_name}")
 
-    def get_agent(self, agent_name: str) -> Any:
+    def get_agent(self, agent_name: str) -> ToolAgentProtocol | None:
         """Get agent by name.
 
         Args:
@@ -85,7 +97,7 @@ class ToolAgentRegistry:
         return "\n".join(lines)
 
     async def delegate(
-        self, agent_name: str, task: str, global_context: dict | None = None
+        self, agent_name: str, task: str, global_context: dict[str, Any] | None = None
     ) -> str:
         """Delegate a task to a specific tool agent.
 

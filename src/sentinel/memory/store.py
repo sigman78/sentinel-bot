@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import aiosqlite
@@ -134,7 +134,7 @@ class SQLiteMemoryStore(MemoryStore):
             "SELECT value FROM core_memory WHERE key = ?", (key,)
         ) as cursor:
             row = await cursor.fetchone()
-            return row[0] if row else None
+            return cast(str, row[0]) if row else None
 
     async def set_core(self, key: str, value: str) -> None:
         """Set core memory value (agent-editable)."""
@@ -393,8 +393,8 @@ class SQLiteMemoryStore(MemoryStore):
         task_type: str,
         description: str,
         schedule_type: str,
-        schedule_data: dict,
-        execution_data: dict | None,
+        schedule_data: dict[str, Any],
+        execution_data: dict[str, Any] | None,
         next_run: datetime,
     ) -> None:
         """Create a new scheduled task."""
@@ -416,7 +416,7 @@ class SQLiteMemoryStore(MemoryStore):
         )
         await self.conn.commit()
 
-    async def get_task(self, task_id: str) -> dict | None:
+    async def get_task(self, task_id: str) -> dict[str, Any] | None:
         """Get task by ID."""
         async with self.conn.execute(
             """SELECT id, task_type, description, schedule_type, schedule_data,
@@ -440,7 +440,7 @@ class SQLiteMemoryStore(MemoryStore):
                 }
         return None
 
-    async def list_tasks(self, enabled_only: bool = True) -> list[dict]:
+    async def list_tasks(self, enabled_only: bool = True) -> list[dict[str, Any]]:
         """List all tasks."""
         query = "SELECT id, task_type, description, schedule_type, schedule_data, execution_data, enabled, created_at, last_run, next_run FROM scheduled_tasks"
         if enabled_only:
@@ -466,7 +466,7 @@ class SQLiteMemoryStore(MemoryStore):
                 )
         return results
 
-    async def get_due_tasks(self, now: datetime) -> list[dict]:
+    async def get_due_tasks(self, now: datetime) -> list[dict[str, Any]]:
         """Get tasks that are due to run."""
         async with self.conn.execute(
             """SELECT id, task_type, description, schedule_type, schedule_data,

@@ -8,9 +8,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from sentinel.core.types import AgentContext, AgentType, Message
+from sentinel.core.typing import MessageDict, ToolSpec
 
 if TYPE_CHECKING:
     from sentinel.llm.base import LLMConfig, LLMResponse
@@ -23,10 +24,11 @@ class LLMProvider(Protocol):
 
     async def complete(
         self,
-        messages: list[dict],
+        messages: list[MessageDict],
         config: "LLMConfig",
+        preferred: str | None = None,
         task: object = None,
-        tools: list[dict] | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> "LLMResponse":
         """Generate completion from messages."""
         ...
@@ -48,7 +50,7 @@ class AgentConfig:
     system_prompt: str
     max_turns: int = 10
     timeout_seconds: float = 300.0
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseAgent(ABC):
@@ -58,7 +60,7 @@ class BaseAgent(ABC):
         self,
         config: AgentConfig,
         llm: "LLMProvider",
-        memory: "MemoryStore",
+        memory: "MemoryStore | None",
     ):
         self.config = config
         self.llm = llm
@@ -82,7 +84,7 @@ class BaseAgent(ABC):
         """Clean up resources."""
         self.state = AgentState.TERMINATED
 
-    def _build_messages(self) -> list[dict[str, str]]:
+    def _build_messages(self) -> list[MessageDict]:
         """Build message list for LLM call."""
         messages = [{"role": "system", "content": self.config.system_prompt}]
         for msg in self.context.conversation:

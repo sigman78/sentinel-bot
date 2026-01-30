@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
@@ -15,10 +16,14 @@ from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
 from sentinel.memory.profile import UserProfile
 from sentinel.tools.executor import ToolExecutor
 from sentinel.tools.parser import ToolCall
+from sentinel.core.typing import MessageDict, ToolSpec
 from sentinel.tools.registry import ToolRegistry
 
 # Import for delegation context
 from sentinel.tools.builtin.delegation import set_current_user_profile
+
+if TYPE_CHECKING:
+    from sentinel.core.tool_agent_registry import ToolAgentRegistry
 
 SUMMARIZE_PROMPT = """Summarize this conversation in 2-3 sentences, focusing on:
 - Key topics discussed
@@ -71,7 +76,7 @@ class DialogAgent(BaseAgent):
         identity_path: Path | None = None,
         agenda_path: Path | None = None,
         tool_registry: ToolRegistry | None = None,
-        tool_agent_registry: "ToolAgentRegistry | None" = None,  # noqa: F821
+        tool_agent_registry: "ToolAgentRegistry | None" = None,
     ):
         config = AgentConfig(
             agent_type=AgentType.DIALOG,
@@ -205,13 +210,13 @@ class DialogAgent(BaseAgent):
         )
         logger.debug(f"DialogAgent system prompt: {len(system_prompt)} chars")
 
-        llm_messages = [{"role": "system", "content": system_prompt}]
+        llm_messages: list[MessageDict] = [{"role": "system", "content": system_prompt}]
         for msg in self.context.conversation:
             llm_messages.append(msg.to_llm_format())
         logger.debug(f"DialogAgent conversation: {len(self.context.conversation)} messages")
 
         # Prepare tools for LiteLLM (uses OpenAI format, converts automatically)
-        tools = None
+        tools: list[ToolSpec] | None = None
         if self._tool_registry:
             tools = self._tool_registry.to_openai_tools()
             logger.debug(f"Prepared {len(tools)} tools for LiteLLM")
@@ -226,7 +231,7 @@ class DialogAgent(BaseAgent):
             logger.info(f"Detected {len(tool_calls)} native tool call(s): {[tc['name'] for tc in tool_calls]}")
 
             # Convert native format to ToolCall objects for executor
-            executor_calls = []
+            executor_calls: list[ToolCall] = []
             for tc in tool_calls:
                 executor_calls.append(
                     ToolCall(
@@ -245,15 +250,17 @@ class DialogAgent(BaseAgent):
             # (avoids complexity of reconstructing tool_use blocks for Anthropic)
             results_text = self._tool_executor.format_results_for_llm(results)
 
-            llm_messages.append({
-                "role": "user",
-                "content": (
-                    f"I called the requested tools and got these results:\n\n"
-                    f"{results_text}\n\n"
-                    f"Please provide a natural, conversational response to my original request "
-                    f"based on these tool results."
-                ),
-            })
+            llm_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"I called the requested tools and got these results:\n\n"
+                        f"{results_text}\n\n"
+                        f"Please provide a natural, conversational response to my original request "
+                        f"based on these tool results."
+                    ),
+                }
+            )
 
             # Get final natural language response from LLM (no tools this time)
             final_response = await self.llm.complete(
@@ -394,7 +401,7 @@ class DialogAgent(BaseAgent):
         except Exception as e:
             logger.warning(f"Failed to persist exchange: {e}")
 
-    async def _get_relevant_memories(self, query: str) -> list[dict]:
+    async def _get_relevant_memories(self, query: str) -> list[dict[str, Any]]:
         """Retrieve memories relevant to current query."""
         try:
             entries = await self.memory.retrieve(query, limit=5)
@@ -405,7 +412,7 @@ class DialogAgent(BaseAgent):
             logger.warning(f"Memory retrieval failed: {e}")
             return []
 
-    def _format_memories(self, memories: list[dict]) -> str:
+    def _format_memories(self, memories: list[dict[str, Any]]) -> str:
         """Format memories for prompt injection."""
         if not memories:
             return "(No prior context)"

@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
 from sentinel.core.logging import get_logger
+from typing import Any
+
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.agents.base import LLMProvider
 
@@ -83,7 +85,7 @@ class ToolAgent(BaseAgent):
         return response
 
     @abstractmethod
-    async def execute_task(self, task: str, global_context: dict) -> str:
+    async def execute_task(self, task: str, global_context: dict[str, Any]) -> str:
         """Execute the specialized task.
 
         Override this method in subclasses to implement tool-specific logic.

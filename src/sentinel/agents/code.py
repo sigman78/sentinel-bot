@@ -12,7 +12,7 @@ from sentinel.agents.base import LLMProvider
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
-from sentinel.workspace.executor import ScriptExecutor
+from sentinel.workspace.executor import ExecutionResult, ScriptExecutor
 from sentinel.workspace.manager import WorkspaceManager
 
 logger = get_logger("agents.code")
@@ -122,7 +122,7 @@ class CodeAgent(BaseAgent):
 
         return code
 
-    async def _analyze_result(self, task: str, result) -> str:
+    async def _analyze_result(self, task: str, result: ExecutionResult) -> str:
         """Use LLM to analyze execution results."""
         llm_config = LLMConfig(model=None, max_tokens=512, temperature=0.3)
         messages = [
@@ -142,7 +142,9 @@ class CodeAgent(BaseAgent):
         )
         return response.content.strip()
 
-    async def _persist_execution(self, task: str, script_path: Path, result) -> None:
+    async def _persist_execution(
+        self, task: str, script_path: Path, result: ExecutionResult
+    ) -> None:
         """Save execution to episodic memory."""
         try:
             status = "success" if result.exit_code == 0 else "failed"

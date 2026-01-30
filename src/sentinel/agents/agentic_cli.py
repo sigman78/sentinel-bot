@@ -5,13 +5,14 @@ import json
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from sentinel.agents.base import AgentConfig, AgentState, BaseAgent
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType, ContentType, Message
 from sentinel.agents.base import LLMProvider
+from sentinel.core.typing import StringDict
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 
@@ -454,9 +455,9 @@ class AgenticCliAgent(BaseAgent):
         # Build user message prompting for next action
         user_prompt = "What should be the next action? Respond with JSON."
 
-        messages = [
+        messages: list[StringDict] = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": user_prompt},
         ]
 
         # Request JSON output
@@ -480,7 +481,10 @@ class AgenticCliAgent(BaseAgent):
                 content = content[4:].strip()
 
         try:
-            return json.loads(content)
+            data = json.loads(content)
+            if not isinstance(data, dict):
+                raise ValueError("LLM response was not a JSON object")
+            return cast(dict[str, Any], data)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {content[:200]}")
             raise ValueError(f"Invalid JSON response from LLM: {e}")

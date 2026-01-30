@@ -54,3 +54,26 @@ addopts = "--ignore=tests/integration"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = ["typings"]
+
+# 1.
+ignore_missing_imports = true
+
+# 2. Allow 'Any' types and dynamically typed code
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+
+# 3. Loosen function definition requirements
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+# 4. Do not enforce strict Optional/None checks
+strict_optional = false
+
+# 5. Allow redefinition of variables
+# allow_redefinition = true

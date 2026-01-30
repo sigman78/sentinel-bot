@@ -4,6 +4,7 @@ import asyncio
 import base64
 from datetime import datetime, timedelta
 from io import BytesIO
+from typing import Any
 
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
@@ -24,7 +25,7 @@ from sentinel.core.logging import get_logger
 from sentinel.core.orchestrator import TaskPriority, get_orchestrator
 from sentinel.core.types import ContentType, Message
 from sentinel.interfaces.base import InboundMessage, Interface, OutboundMessage
-from sentinel.llm.router import create_default_router
+from sentinel.llm.router import SentinelLLMRouter, create_default_router
 from sentinel.memory.store import SQLiteMemoryStore
 from sentinel.tasks.manager import TaskManager
 from sentinel.tools.builtin import register_all_builtin_tools
@@ -38,14 +39,14 @@ logger = get_logger("interfaces.telegram")
 class TelegramInterface(Interface):
     """Telegram bot interface with persona from identity.md."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         settings = get_settings()
         self.token = settings.telegram_token
         self.owner_id = settings.telegram_owner_id
         self.app: Application | None = None
         self.agent: DialogAgent | None = None
         self.memory: SQLiteMemoryStore | None = None
-        self._router = None
+        self._router: SentinelLLMRouter | None = None
         self._sleep_agent: SleepAgent | None = None
         self._awareness_agent: AwarenessAgent | None = None
         self._code_agent: CodeAgent | None = None
@@ -61,8 +62,9 @@ class TelegramInterface(Interface):
         self.memory = SQLiteMemoryStore(settings.db_path)
         await self.memory.connect()
 
-        self._router = create_default_router()
-        if not self._router.available_providers:
+        router = create_default_router()
+        self._router = router
+        if not router.available_providers:
             raise RuntimeError("No LLM providers available")
 
         # Initialize task manager first (needed by tools)
@@ -264,6 +266,8 @@ class TelegramInterface(Interface):
         self, chat_id: int, text: str, is_markdown: bool = True, reply_to: int | None = None
     ) -> None:
         """Send message with fallback if markdown fails, splits long messages."""
+        if not self.app:
+            return
         # Telegram limit is 4096 chars, use 4000 for safety margin
         max_len = 4000
         chunks = self._split_message(text, max_len)
@@ -271,28 +275,33 @@ class TelegramInterface(Interface):
         for i, chunk in enumerate(chunks):
             # Only reply_to on first chunk
             reply_id = reply_to if i == 0 else None
-            await self._send_chunk(chat_id, chunk, is_markdown, reply_id)
+            await self._send_chunk(self.app, chat_id, chunk, is_markdown, reply_id)
 
     async def _send_chunk(
-        self, chat_id: int, text: str, is_markdown: bool, reply_to: int | None
+        self,
+        app: Any,
+        chat_id: int,
+        text: str,
+        is_markdown: bool,
+        reply_to: int | None,
     ) -> None:
         """Send a single message chunk with markdown fallback."""
         try:
             if is_markdown:
-                await self.app.bot.send_message(
+                await app.bot.send_message(
                     chat_id=chat_id,
                     text=text,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_to_message_id=reply_to,
                 )
             else:
-                await self.app.bot.send_message(
+                await app.bot.send_message(
                     chat_id=chat_id, text=text, reply_to_message_id=reply_to
                 )
         except Exception as e:
             logger.warning(f"Markdown failed, falling back to plain: {e}")
             try:
-                await self.app.bot.send_message(
+                await app.bot.send_message(
                     chat_id=chat_id, text=text, reply_to_message_id=reply_to
                 )
             except Exception as e2:
@@ -371,7 +380,7 @@ Just send a message to chat with me."""
 
         providers = "none"
         if self._router:
-            providers = ", ".join(p.value for p in self._router.available_providers)
+            providers = ", ".join(self._router.available_providers)
         conv_len = len(self.agent.context.conversation) if self.agent else 0
 
         status = f"""*Status*
@@ -781,6 +790,8 @@ Agenda Path: `{self.agent._agenda_path}`
 
     async def _setup_bot_commands(self) -> None:
         """Set up bot command menu for Telegram."""
+        if not self.app:
+            return
         commands = [
             BotCommand("start", "Initialize bot"),
             BotCommand("help", "Show available commands"),

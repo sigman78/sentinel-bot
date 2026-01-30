@@ -2,13 +2,17 @@
 
 import asyncio
 import contextlib
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sentinel.core.logging import get_logger
 from sentinel.core.types import AgentType
+
+if TYPE_CHECKING:
+    from sentinel.agents.base import BaseAgent
 
 logger = get_logger("core.orchestrator")
 
@@ -25,7 +29,7 @@ class ScheduledTask:
 
     id: str
     name: str
-    callback: Callable
+    callback: Callable[[], Awaitable[None] | None]
     interval: timedelta | None = None  # None = one-shot
     priority: TaskPriority = TaskPriority.NORMAL
     next_run: datetime = field(default_factory=datetime.now)
@@ -37,15 +41,15 @@ class ScheduledTask:
 class Orchestrator:
     """Manages agent lifecycles and schedules background tasks."""
 
-    def __init__(self):
-        self._agents: dict[str, BaseAgent] = {}  # noqa: F821
+    def __init__(self) -> None:
+        self._agents: dict[str, "BaseAgent"] = {}
         self._tasks: dict[str, ScheduledTask] = {}
         self._running = False
-        self._scheduler_task: asyncio.Task | None = None
+        self._scheduler_task: asyncio.Task[None] | None = None
         self._idle_threshold = timedelta(minutes=5)
         self._last_activity: datetime = datetime.now()
 
-    def register_agent(self, agent_id: str, agent: "BaseAgent") -> None:  # noqa: F821
+    def register_agent(self, agent_id: str, agent: "BaseAgent") -> None:
         """Register an agent with the orchestrator."""
         self._agents[agent_id] = agent
         logger.debug(f"Registered agent: {agent_id}")
@@ -56,7 +60,7 @@ class Orchestrator:
             del self._agents[agent_id]
             logger.debug(f"Unregistered agent: {agent_id}")
 
-    def get_agent(self, agent_type: AgentType) -> "BaseAgent | None":  # noqa: F821
+    def get_agent(self, agent_type: AgentType) -> "BaseAgent | None":
         """Get agent by type."""
         for agent in self._agents.values():
             if agent.config.agent_type == agent_type:
@@ -67,7 +71,7 @@ class Orchestrator:
         self,
         task_id: str,
         name: str,
-        callback: Callable,
+        callback: Callable[[], Awaitable[None] | None],
         interval: timedelta | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         delay: timedelta | None = None,

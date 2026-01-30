@@ -25,9 +25,9 @@ def _get_agenda_path() -> Path:
 
 def _parse_agenda(content: str) -> dict[str, str]:
     """Parse agenda content into sections."""
-    sections = {}
-    current_section = None
-    section_lines = []
+    sections: dict[str, str] = {}
+    current_section: str | None = None
+    section_lines: list[str] = []
 
     for line in content.split("\n"):
         # Check for section headers (## Section Name)
@@ -171,5 +171,5 @@ async def update_agenda(section: str, content: str) -> ActionResult:
 
 def register_agenda_tools() -> None:
     """Register agenda management tools with the global registry."""
-    register_tool(check_agenda._tool)  # type: ignore
-    register_tool(update_agenda._tool)  # type: ignore
+    register_tool(check_agenda._tool)  # type: ignore[attr-defined]
+    register_tool(update_agenda._tool)  # type: ignore[attr-defined]

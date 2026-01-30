@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from typing import Any
 
 from sentinel.core.logging import get_logger
 from sentinel.core.types import ActionResult
@@ -14,7 +15,7 @@ logger = get_logger("tools.executor")
 class DateTimeEncoder(json.JSONEncoder):
     """JSON encoder that handles datetime objects."""
 
-    def default(self, obj):
+    def default(self, obj: object) -> Any:
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
@@ -23,7 +24,7 @@ class DateTimeEncoder(json.JSONEncoder):
 class ToolExecutor:
     """Executes tool calls with validation."""
 
-    def __init__(self, registry: ToolRegistry):
+    def __init__(self, registry: ToolRegistry) -> None:
         """
         Initialize executor.
 

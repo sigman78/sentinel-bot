@@ -46,7 +46,7 @@ class ScheduleParser:
             raise ValueError(f"Unknown time unit: {unit}")
 
     @staticmethod
-    def parse_recurring(text: str) -> dict:
+    def parse_recurring(text: str) -> dict[str, str]:
         """
         Parse recurring schedule patterns.
 
@@ -106,7 +106,7 @@ class ScheduleParser:
         return f"{h:02d}:{m:02d}"
 
     @staticmethod
-    def calculate_next_run(schedule_data: dict, after: datetime) -> datetime:
+    def calculate_next_run(schedule_data: dict[str, str], after: datetime) -> datetime:
         """
         Calculate next run time from schedule_data.
 

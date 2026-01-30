@@ -34,4 +34,4 @@ async def get_current_time() -> ActionResult:
 
 def register_system_tools() -> None:
     """Register system tools with the global registry."""
-    register_tool(get_current_time._tool)  # type: ignore
+    register_tool(get_current_time._tool)  # type: ignore[attr-defined]

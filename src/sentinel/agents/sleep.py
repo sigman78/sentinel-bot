@@ -53,7 +53,7 @@ class SleepAgent(BaseAgent):
             content_type=ContentType.TEXT,
         )
 
-    async def run_consolidation(self) -> dict:
+    async def run_consolidation(self) -> dict[str, int]:
         """Main consolidation routine - run during idle.
 
         Consolidation pipeline:
@@ -62,7 +62,11 @@ class SleepAgent(BaseAgent):
         3. Apply importance decay to old memories
         """
         self.state = AgentState.ACTIVE
-        result = {"facts_extracted": 0, "memories_consolidated": 0, "memories_decayed": 0}
+        result: dict[str, int] = {
+            "facts_extracted": 0,
+            "memories_consolidated": 0,
+            "memories_decayed": 0,
+        }
 
         try:
             # Get recent episodic memories
@@ -202,7 +206,12 @@ class SleepAgent(BaseAgent):
         summaries = "\n".join(f"- {m.content}" for m in memories)
 
         llm_config = LLMConfig(model=None, max_tokens=500, temperature=0.3)
-        messages = [{"role": "user", "content": EXTRACT_FACTS_PROMPT.format(summaries=summaries)}]
+        messages = [
+            {
+                "role": "user",
+                "content": EXTRACT_FACTS_PROMPT.format(summaries=summaries),
+            }
+        ]
 
         try:
             response = await self.llm.complete(messages, llm_config, task=TaskType.FACT_EXTRACTION)
@@ -230,7 +239,12 @@ class SleepAgent(BaseAgent):
         summaries = "\n".join(f"- {m.content}" for m in memories)
 
         llm_config = LLMConfig(model=None, max_tokens=256, temperature=0.3)
-        messages = [{"role": "user", "content": CONSOLIDATE_PROMPT.format(summaries=summaries)}]
+        messages = [
+            {
+                "role": "user",
+                "content": CONSOLIDATE_PROMPT.format(summaries=summaries),
+            }
+        ]
 
         try:
             response = await self.llm.complete(messages, llm_config, task=TaskType.SUMMARIZATION)

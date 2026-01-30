@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from sentinel.core.typing import MessageDict
 
 class ContentType(Enum):
     TEXT = "text"
@@ -44,7 +45,7 @@ class Message:
     content_type: ContentType = ContentType.TEXT
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_llm_format(self) -> dict[str, Any]:
+    def to_llm_format(self) -> MessageDict:
         """Convert to LLM API message format.
 
         Supports multimodal content (text + images) for vision-capable models.
@@ -54,8 +55,9 @@ class Message:
             return {"role": self.role, "content": self.content}
 
         # Multimodal message (text + images)
-        if "images" in self.metadata:
-            content_blocks = []
+        images = self.metadata.get("images")
+        if isinstance(images, list):
+            content_blocks: list[dict[str, Any]] = []
 
             # Add text block if present
             if self.content:
@@ -65,7 +67,7 @@ class Message:
                 })
 
             # Add image blocks
-            for img in self.metadata["images"]:
+            for img in images:
                 content_blocks.append({
                     "type": "image",
                     "source": {

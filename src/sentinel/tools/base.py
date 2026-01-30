@@ -3,9 +3,10 @@
 import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 from sentinel.core.types import ActionResult, RiskLevel
+from sentinel.core.typing import ToolSpec
 
 
 @dataclass
@@ -78,7 +79,7 @@ class Tool:
         # Type validation could be added here
         return True, None
 
-    def to_openai_function(self) -> dict:
+    def to_openai_function(self) -> ToolSpec:
         """
         Convert to OpenAI function calling format.
 
@@ -112,7 +113,7 @@ class Tool:
             },
         }
 
-    def to_anthropic_tool(self) -> dict:
+    def to_anthropic_tool(self) -> ToolSpec:
         """
         Convert to Anthropic tool use format.
 
@@ -144,13 +145,16 @@ class Tool:
         }
 
 
+F = TypeVar("F", bound=Callable[..., Awaitable[ActionResult]])
+
+
 def tool(
     name: str,
     description: str,
     requires_approval: bool = False,
     risk_level: RiskLevel = RiskLevel.LOW,
     examples: list[str] | None = None,
-) -> Callable:
+) -> Callable[[F], F]:
     """
     Decorator to register a function as a tool.
 
@@ -167,7 +171,7 @@ def tool(
             pass
     """
 
-    def decorator(func: Callable[..., Awaitable[ActionResult]]) -> Callable:
+    def decorator(func: F) -> F:
         # Extract parameters from function signature
         sig = inspect.signature(func)
         parameters = []

@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any
 
 import litellm
-import yaml
+import yaml  # type: ignore[import-untyped]
 from litellm import acompletion
 
 from sentinel.core.logging import get_logger
+from sentinel.core.typing import MessageDict, ToolSpec
 from sentinel.llm.base import LLMConfig, LLMResponse
 
 logger = get_logger("llm.litellm_adapter")
@@ -22,7 +23,7 @@ litellm.set_verbose = False
 class ModelConfig:
     """Model configuration from YAML."""
 
-    def __init__(self, data: dict[str, Any]):
+    def __init__(self, data: dict[str, Any]) -> None:
         self.model_id = data["model_id"]
         self.litellm_name = data["litellm_name"]
         self.provider = data["provider"]
@@ -65,7 +66,7 @@ class ModelConfig:
 class ModelRegistry:
     """Load and manage model configurations from YAML."""
 
-    def __init__(self, config_path: Path | str):
+    def __init__(self, config_path: Path | str) -> None:
         with open(config_path) as f:
             data = yaml.safe_load(f)
 
@@ -100,7 +101,7 @@ class LiteLLMAdapter:
     def __init__(self, registry: ModelRegistry):
         self.registry = registry
 
-    def _convert_to_openai_format(self, messages: list[dict]) -> list[dict]:
+    def _convert_to_openai_format(self, messages: list[MessageDict]) -> list[MessageDict]:
         """Convert messages to OpenAI format, handling Claude-style image blocks.
 
         Claude format:
@@ -154,9 +155,9 @@ class LiteLLMAdapter:
     async def complete(
         self,
         model_id: str,
-        messages: list[dict],
+        messages: list[MessageDict],
         config: LLMConfig,
-        tools: list[dict] | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> LLMResponse:
         """Call LiteLLM completion with model from registry.
 

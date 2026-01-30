@@ -1,8 +1,10 @@
 """LLM provider router - task-aware model selection with LiteLLM."""
 
 from enum import Enum
+from typing import Any
 
 from sentinel.core.logging import get_logger
+from sentinel.core.typing import MessageDict, ToolSpec
 from sentinel.llm.base import LLMConfig, LLMResponse
 from sentinel.llm.litellm_adapter import LiteLLMAdapter, create_adapter
 
@@ -26,10 +28,10 @@ class TaskType(Enum):
 class SentinelLLMRouter:
     """Router with task-aware model selection using LiteLLM."""
 
-    def __init__(self, adapter: LiteLLMAdapter):
+    def __init__(self, adapter: LiteLLMAdapter) -> None:
         self.adapter = adapter
         self.registry = adapter.registry
-        self._cost_tracker = None
+        self._cost_tracker: Any | None = None
 
         # Load task difficulty from config
         routing = self.registry.routing_config
@@ -41,7 +43,7 @@ class SentinelLLMRouter:
             f"budget_threshold={self.budget_threshold}"
         )
 
-    def set_cost_tracker(self, tracker) -> None:
+    def set_cost_tracker(self, tracker: Any) -> None:
         """Set cost tracking service."""
         self._cost_tracker = tracker
 
@@ -56,11 +58,11 @@ class SentinelLLMRouter:
 
     async def complete(
         self,
-        messages: list[dict],
+        messages: list[MessageDict],
         config: LLMConfig,
         preferred: str | None = None,
-        task: TaskType | None = None,
-        tools: list[dict] | None = None,
+        task: object | None = None,
+        tools: list[ToolSpec] | None = None,
     ) -> LLMResponse:
         """Route completion to optimal model based on task/cost.
 
@@ -75,7 +77,8 @@ class SentinelLLMRouter:
             LLMResponse with content and metadata
         """
         # 1. Determine difficulty from task
-        difficulty = self.task_difficulty.get(task.value if task else "simple", 2)
+        task_name = task.value if isinstance(task, TaskType) else "simple"
+        difficulty = self.task_difficulty.get(task_name, 2)
 
         # 2. Check budget - downgrade if approaching limit
         if self._cost_tracker and self._cost_tracker.should_use_cheaper_model():
@@ -131,7 +134,7 @@ class SentinelLLMRouter:
                     self._cost_tracker.add_cost(response.cost_usd)
 
                 logger.info(
-                    f"Task {task.value if task else 'default'}: "
+                    f"Task {task_name if task else 'default'}: "
                     f"used {response.model} (difficulty={difficulty}, "
                     f"cost=${response.cost_usd:.4f})"
                 )

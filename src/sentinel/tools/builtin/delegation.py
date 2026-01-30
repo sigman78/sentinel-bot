@@ -2,14 +2,15 @@
 
 from sentinel.core.tool_agent_registry import get_tool_agent_registry
 from sentinel.core.types import ActionResult
+from sentinel.memory.profile import UserProfile
 from sentinel.tools.base import tool
 from sentinel.tools.registry import register_tool
 
 # Global storage for user profile (set by DialogAgent)
-_current_user_profile = None
+_current_user_profile: UserProfile | None = None
 
 
-def set_current_user_profile(profile):
+def set_current_user_profile(profile: UserProfile | None) -> None:
     """Set current user profile for delegation context."""
     global _current_user_profile
     _current_user_profile = profile
@@ -46,7 +47,7 @@ async def delegate_to_agent(agent_name: str, task: str) -> ActionResult:
         registry = get_tool_agent_registry()
 
         # Build global context
-        global_context = {}
+        global_context: dict[str, object] = {}
         if _current_user_profile:
             global_context["user_profile"] = _current_user_profile
 
@@ -70,4 +71,4 @@ async def delegate_to_agent(agent_name: str, task: str) -> ActionResult:
 
 def register_delegation_tools() -> None:
     """Register delegation tools with the global registry."""
-    register_tool(delegate_to_agent._tool)  # type: ignore
+    register_tool(delegate_to_agent._tool)  # type: ignore[attr-defined]
