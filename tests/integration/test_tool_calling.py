@@ -92,8 +92,8 @@ async def test_add_reminder_via_natural_language(memory, tool_registry):
     assert "remind" in content_lower or "call mom" in content_lower or "set" in content_lower
 
     # Check that tool was actually called via native API
-    assert "tool_calls" in response.metadata
-    assert response.metadata["tool_calls"] > 0
+    assert "tool_call_count" in response.metadata
+    assert response.metadata["tool_call_count"] > 0
     assert response.metadata.get("tool_results")  # Should have results
 
 

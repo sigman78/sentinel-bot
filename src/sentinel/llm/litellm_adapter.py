@@ -192,6 +192,9 @@ class LiteLLMAdapter:
         # Add API key if needed
         if model_config.api_key:
             params["api_key"] = model_config.api_key
+        elif model_config.base_url:
+            # Local models with base_url need a dummy key for OpenAI-compatible endpoints
+            params["api_key"] = "EMPTY"
 
         # Add base URL for local models
         if model_config.base_url:
