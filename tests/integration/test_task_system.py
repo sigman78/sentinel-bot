@@ -102,7 +102,7 @@ async def test_recurring_task_multiple_executions(task_manager, memory, notifica
     task = await memory.get_task("recurring_test")
     assert task is not None
     assert task["enabled"] is True
-    first_next_run = datetime.fromisoformat(task["next_run"])
+    first_next_run = task["next_run"]  # Already a datetime object
     # Should be today at 9am
     expected = yesterday_9am + timedelta(days=1)
     assert first_next_run == expected
@@ -120,7 +120,7 @@ async def test_recurring_task_multiple_executions(task_manager, memory, notifica
     # Still active and rescheduled
     task = await memory.get_task("recurring_test")
     assert task["enabled"] is True
-    second_next_run = datetime.fromisoformat(task["next_run"])
+    second_next_run = task["next_run"]  # Already a datetime object
     # Should advance from 2 days ago to 1 day ago
     assert second_next_run == (yesterday_9am - timedelta(days=1)) + timedelta(days=1)
 
@@ -249,7 +249,7 @@ async def test_weekday_recurring_calculation(task_manager, memory):
 
     task_id = result.data["task_id"]
     task = await memory.get_task(task_id)
-    next_run = datetime.fromisoformat(task["next_run"])
+    next_run = task["next_run"]
 
     # Should never be Saturday (5) or Sunday (6)
     assert next_run.weekday() < 5
@@ -267,7 +267,7 @@ async def test_weekday_recurring_calculation(task_manager, memory):
 
     # Next run should be Monday, not Saturday
     task = await memory.get_task(task_id)
-    next_run = datetime.fromisoformat(task["next_run"])
+    next_run = task["next_run"]
     assert next_run.weekday() == 0  # Monday
 
     logger.info("Weekday recurring calculation test passed")
@@ -287,7 +287,7 @@ async def test_task_list_ordering(task_manager):
     assert len(tasks) == 3
 
     # Should be ordered by next_run (earliest first)
-    next_runs = [datetime.fromisoformat(t["next_run"]) for t in tasks]
+    next_runs = [t["next_run"] for t in tasks]
     assert next_runs == sorted(next_runs)
 
     logger.info("Task list ordering test passed")
@@ -372,7 +372,7 @@ async def test_specific_day_pattern_advance(task_manager, memory):
 
     # Check rescheduled correctly
     task = await memory.get_task("monday_test")
-    first_next_run = datetime.fromisoformat(task["next_run"])
+    first_next_run = task["next_run"]
     assert first_next_run.weekday() == 0  # Still Monday
     # Should be 7 days after last Monday
     assert (first_next_run - last_monday).days == 7
@@ -384,7 +384,7 @@ async def test_specific_day_pattern_advance(task_manager, memory):
 
     # Should advance to 1 week ago
     task = await memory.get_task("monday_test")
-    second_next_run = datetime.fromisoformat(task["next_run"])
+    second_next_run = task["next_run"]
     assert second_next_run.weekday() == 0
     assert (second_next_run - two_weeks_ago).days == 7
 
