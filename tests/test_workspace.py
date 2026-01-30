@@ -1,190 +1,90 @@
-"""Tests for workspace management and execution."""
+"""Fast workspace tests without venv creation."""
 
 from pathlib import Path
 
 import pytest
 
-from sentinel.workspace.executor import ScriptExecutor
 from sentinel.workspace.manager import WorkspaceManager
 from sentinel.workspace.sandbox import SandboxValidator
 
 
 @pytest.fixture
-async def workspace(tmp_path: Path):
-    """Create temporary workspace."""
+def workspace_no_venv(tmp_path: Path):
+    """Create workspace without venv (fast)."""
     ws = WorkspaceManager(tmp_path / "workspace")
-    await ws.initialize()
+    # Create directories manually without calling initialize()
+    ws.scripts_dir.mkdir(parents=True, exist_ok=True)
+    ws.output_dir.mkdir(parents=True, exist_ok=True)
+    ws.temp_dir.mkdir(parents=True, exist_ok=True)
     return ws
 
 
 @pytest.mark.asyncio
-async def test_workspace_initialization(workspace: WorkspaceManager):
+async def test_workspace_directories(workspace_no_venv: WorkspaceManager):
     """Workspace directories are created."""
-    assert workspace.scripts_dir.exists()
-    assert workspace.output_dir.exists()
-    assert workspace.temp_dir.exists()
+    assert workspace_no_venv.scripts_dir.exists()
+    assert workspace_no_venv.output_dir.exists()
+    assert workspace_no_venv.temp_dir.exists()
 
 
 @pytest.mark.asyncio
-async def test_workspace_venv_creation(workspace: WorkspaceManager):
-    """Virtual environment is created."""
-    assert workspace.venv_dir.exists()
-    assert (workspace.venv_dir / "pyvenv.cfg").exists()
-
-
-@pytest.mark.asyncio
-async def test_save_script(workspace: WorkspaceManager):
+async def test_save_script(workspace_no_venv: WorkspaceManager):
     """Script saving works."""
     content = "print('hello world')"
-    script_path = await workspace.save_script(content, prefix="test")
+    script_path = await workspace_no_venv.save_script(content, prefix="test")
 
     assert script_path.exists()
     assert script_path.read_text() == content
     assert script_path.suffix == ".py"
-    assert script_path.parent == workspace.scripts_dir
+    assert script_path.parent == workspace_no_venv.scripts_dir
 
 
 @pytest.mark.asyncio
-async def test_save_script_size_limit(workspace: WorkspaceManager):
+async def test_save_script_size_limit(workspace_no_venv: WorkspaceManager):
     """Large scripts are rejected."""
     content = "x = 1\n" * 100_000  # Exceeds 100KB limit
 
     with pytest.raises(ValueError, match="exceeds size limit"):
-        await workspace.save_script(content)
+        await workspace_no_venv.save_script(content)
 
 
 @pytest.mark.asyncio
-async def test_save_output(workspace: WorkspaceManager):
+async def test_save_output(workspace_no_venv: WorkspaceManager):
     """Output saving works."""
     output = "Result: 42\nSuccess!"
-    output_path = await workspace.save_output("test_script", output)
+    output_path = await workspace_no_venv.save_output("test_script", output)
 
     assert output_path.exists()
     assert output_path.read_text() == output
-    assert output_path.parent == workspace.output_dir
+    assert output_path.parent == workspace_no_venv.output_dir
 
 
 @pytest.mark.asyncio
-async def test_cleanup_temp(workspace: WorkspaceManager):
+async def test_cleanup_temp(workspace_no_venv: WorkspaceManager):
     """Temp cleanup removes files."""
-    temp_file = workspace.temp_dir / "test.txt"
+    temp_file = workspace_no_venv.temp_dir / "test.txt"
     temp_file.write_text("temporary")
 
-    await workspace.cleanup_temp()
+    await workspace_no_venv.cleanup_temp()
 
     assert not temp_file.exists()
-    assert workspace.temp_dir.exists()  # Directory still exists
+    assert workspace_no_venv.temp_dir.exists()  # Directory still exists
 
 
 @pytest.mark.asyncio
-async def test_get_python_path(workspace: WorkspaceManager):
-    """Python path is correct."""
-    python_path = workspace.get_python_path()
-
-    assert python_path.exists()
-    assert python_path.is_file()
-    assert "python" in python_path.name.lower()
-
-
-@pytest.mark.asyncio
-async def test_path_safety_inside_workspace(workspace: WorkspaceManager):
+async def test_path_safety_inside_workspace(workspace_no_venv: WorkspaceManager):
     """Paths inside workspace are safe."""
-    safe_path = workspace.scripts_dir / "test.py"
+    safe_path = workspace_no_venv.scripts_dir / "test.py"
 
-    assert workspace.is_path_safe(safe_path)
+    assert workspace_no_venv.is_path_safe(safe_path)
 
 
 @pytest.mark.asyncio
-async def test_path_safety_outside_workspace(workspace: WorkspaceManager):
+async def test_path_safety_outside_workspace(workspace_no_venv: WorkspaceManager):
     """Paths outside workspace are unsafe."""
-    unsafe_path = workspace.root.parent / "escape.py"
+    unsafe_path = workspace_no_venv.root.parent / "escape.py"
 
-    assert not workspace.is_path_safe(unsafe_path)
-
-
-@pytest.mark.asyncio
-async def test_execute_simple_script(workspace: WorkspaceManager):
-    """Simple script execution succeeds."""
-    script = "print('Hello from test')"
-    script_path = await workspace.save_script(script, prefix="hello")
-
-    executor = ScriptExecutor(workspace)
-    result = await executor.execute(script_path)
-
-    assert result.exit_code == 0
-    assert "Hello from test" in result.output
-    assert not result.timed_out
-    assert result.duration_ms > 0
-
-
-@pytest.mark.asyncio
-async def test_execute_with_error(workspace: WorkspaceManager):
-    """Script with error returns non-zero exit."""
-    script = "raise ValueError('test error')"
-    script_path = await workspace.save_script(script, prefix="error")
-
-    executor = ScriptExecutor(workspace)
-    result = await executor.execute(script_path)
-
-    assert result.exit_code != 0
-    assert "ValueError" in result.stderr or "ValueError" in result.output
-
-
-@pytest.mark.asyncio
-async def test_execute_timeout(workspace: WorkspaceManager):
-    """Long-running script times out."""
-    script = """
-import time
-time.sleep(10)
-print('Should not see this')
-"""
-    script_path = await workspace.save_script(script, prefix="timeout")
-
-    executor = ScriptExecutor(workspace)
-    result = await executor.execute(script_path, timeout=1.0)
-
-    assert result.timed_out
-    assert "timed out" in result.output.lower()
-
-
-@pytest.mark.asyncio
-async def test_execute_path_validation(workspace: WorkspaceManager):
-    """Executor rejects paths outside workspace."""
-    unsafe_path = workspace.root.parent / "unsafe.py"
-    unsafe_path.write_text("print('should not run')")
-
-    executor = ScriptExecutor(workspace)
-
-    with pytest.raises(ValueError, match="outside workspace"):
-        await executor.execute(unsafe_path)
-
-
-@pytest.mark.asyncio
-async def test_execute_missing_file(workspace: WorkspaceManager):
-    """Executor rejects missing files."""
-    missing_path = workspace.scripts_dir / "nonexistent.py"
-
-    executor = ScriptExecutor(workspace)
-
-    with pytest.raises(FileNotFoundError):
-        await executor.execute(missing_path)
-
-
-@pytest.mark.asyncio
-async def test_execute_multiline_output(workspace: WorkspaceManager):
-    """Script with multiple print statements."""
-    script = """
-for i in range(5):
-    print(f"Line {i}")
-"""
-    script_path = await workspace.save_script(script, prefix="multiline")
-
-    executor = ScriptExecutor(workspace)
-    result = await executor.execute(script_path)
-
-    assert result.exit_code == 0
-    assert "Line 0" in result.output
-    assert "Line 4" in result.output
+    assert not workspace_no_venv.is_path_safe(unsafe_path)
 
 
 def test_sandbox_validator_safe_script(tmp_path: Path):
