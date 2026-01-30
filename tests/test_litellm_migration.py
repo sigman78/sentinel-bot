@@ -11,7 +11,7 @@ from sentinel.llm.router import TaskType, create_default_router
 
 def test_model_registry_loads():
     """Test that model registry loads from YAML."""
-    config_path = Path(__file__).parent.parent / "src" / "sentinel" / "configs" / "models.yaml"
+    config_path = Path(__file__).parent.parent / "models.yaml"
     registry = ModelRegistry(config_path)
 
     # Should have models
@@ -29,7 +29,7 @@ def test_model_registry_loads():
 
 def test_model_config_availability():
     """Test that model availability checks work."""
-    config_path = Path(__file__).parent.parent / "src" / "sentinel" / "configs" / "models.yaml"
+    config_path = Path(__file__).parent.parent / "models.yaml"
     registry = ModelRegistry(config_path)
 
     # At least one model should be available (local doesn't need creds)
