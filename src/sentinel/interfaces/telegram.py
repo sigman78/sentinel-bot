@@ -143,7 +143,7 @@ Format your responses with appropriate markdown for better readability."""
             task_id="sleep_consolidation",
             name="Memory consolidation",
             callback=self._run_sleep_cycle,
-            interval=timedelta(hours=1),
+            interval=timedelta(hours=12),
             priority=TaskPriority.LOW,
             delay=timedelta(minutes=10),  # Wait 10min before first run
         )
@@ -151,7 +151,7 @@ Format your responses with appropriate markdown for better readability."""
             task_id="awareness_check",
             name="Awareness check",
             callback=self._run_awareness_check,
-            interval=timedelta(minutes=1),
+            interval=timedelta(minutes=30),
             priority=TaskPriority.NORMAL,
         )
         await self._orchestrator.start()
