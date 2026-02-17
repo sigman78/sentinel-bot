@@ -49,7 +49,7 @@ def tool_registry():
 
 
 @pytest.mark.asyncio
-async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
+async def test_dialog_with_tool_call(memory, mock_llm, tool_registry, conversation_log):
     """Test DialogAgent processes tool calls correctly."""
 
     # First LLM call returns native tool call
@@ -82,8 +82,10 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
     # Configure mock to return different responses
     mock_llm.complete.side_effect = [first_response, second_response]
 
-    # Create agent with tools
-    agent = DialogAgent(llm=mock_llm, memory=memory, tool_registry=tool_registry)
+    # Create agent with tools and temporary conversation log
+    agent = DialogAgent(
+        llm=mock_llm, memory=memory, tool_registry=tool_registry, conversation_log=conversation_log
+    )
     await agent.initialize()
 
     # Process user message
@@ -107,7 +109,7 @@ async def test_dialog_with_tool_call(memory, mock_llm, tool_registry):
 
 
 @pytest.mark.asyncio
-async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry):
+async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry, conversation_log):
     """Test DialogAgent handles empty final response gracefully."""
 
     # First LLM call returns native tool call
@@ -139,7 +141,9 @@ async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry)
 
     mock_llm.complete.side_effect = [first_response, second_response]
 
-    agent = DialogAgent(llm=mock_llm, memory=memory, tool_registry=tool_registry)
+    agent = DialogAgent(
+        llm=mock_llm, memory=memory, tool_registry=tool_registry, conversation_log=conversation_log
+    )
     await agent.initialize()
 
     user_msg = Message(
@@ -158,7 +162,7 @@ async def test_dialog_with_empty_final_response(memory, mock_llm, tool_registry)
 
 
 @pytest.mark.asyncio
-async def test_dialog_without_tool_calls(memory, mock_llm, tool_registry):
+async def test_dialog_without_tool_calls(memory, mock_llm, tool_registry, conversation_log):
     """Test DialogAgent works normally without tool calls."""
 
     # LLM returns regular response (no tools)
@@ -173,7 +177,9 @@ async def test_dialog_without_tool_calls(memory, mock_llm, tool_registry):
 
     mock_llm.complete.return_value = llm_response
 
-    agent = DialogAgent(llm=mock_llm, memory=memory, tool_registry=tool_registry)
+    agent = DialogAgent(
+        llm=mock_llm, memory=memory, tool_registry=tool_registry, conversation_log=conversation_log
+    )
     await agent.initialize()
 
     user_msg = Message(

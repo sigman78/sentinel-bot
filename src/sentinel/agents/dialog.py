@@ -14,6 +14,7 @@ from sentinel.core.typing import MessageDict, ToolSpec
 from sentinel.llm.base import LLMConfig
 from sentinel.llm.router import TaskType
 from sentinel.memory.base import MemoryEntry, MemoryStore, MemoryType
+from sentinel.memory.conversation_log import ConversationLogStore
 from sentinel.memory.profile import UserProfile
 
 # Import for delegation context
@@ -107,6 +108,7 @@ class DialogAgent(BaseAgent):
         agenda_path: Path | None = None,
         tool_registry: ToolRegistry | None = None,
         tool_agent_registry: "ToolAgentRegistry | None" = None,
+        conversation_log: ConversationLogStore | None = None,
     ):
         config = AgentConfig(
             agent_type=AgentType.DIALOG,
@@ -131,12 +133,17 @@ class DialogAgent(BaseAgent):
         # Tool agent delegation support
         self._tool_agent_registry = tool_agent_registry
 
+        # Conversation logging for memory migration
+        self._conversation_log = conversation_log
+        self._conversation_log_owned = conversation_log is None
+
     async def initialize(self) -> None:
-        """Load identity, agenda, and user profile."""
+        """Load identity, agenda, user profile, and conversation log."""
         await super().initialize()
         self._load_identity()
         self._load_agenda()
         await self._load_user_profile()
+        await self._init_conversation_log()
 
     def _load_identity(self) -> None:
         """Load agent identity/persona from file."""
@@ -208,6 +215,22 @@ class DialogAgent(BaseAgent):
             self._user_profile = UserProfile(name="User")
             await self.memory.update_profile(self._user_profile)
             logger.info("Created default user profile")
+
+    async def _init_conversation_log(self) -> None:
+        """Initialize conversation logging for memory migration."""
+        # Skip if already provided (e.g., from tests)
+        if self._conversation_log is not None:
+            await self._conversation_log.start_session(session_id=self.context.agent_id)
+            return
+
+        try:
+            self._conversation_log = ConversationLogStore()
+            await self._conversation_log.connect()
+            await self._conversation_log.start_session(session_id=self.context.agent_id)
+            logger.info(f"Initialized conversation logging for session {self.context.agent_id}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize conversation logging: {e}")
+            self._conversation_log = None
 
     async def process(self, message: Message) -> Message:
         """Process user message and generate response."""
@@ -434,7 +457,16 @@ class DialogAgent(BaseAgent):
         return min(1.0, max(0.0, score))
 
     async def _persist_exchange(self, user_msg: Message, assistant_msg: Message) -> None:
-        """Save conversation exchange to episodic memory."""
+        """Save conversation exchange to episodic memory and conversation log."""
+        # Log to conversation log for migration support
+        if self._conversation_log:
+            try:
+                await self._conversation_log.log_exchange(user_msg, assistant_msg)
+                logger.debug("Logged exchange to conversation log")
+            except Exception as e:
+                logger.warning(f"Failed to log exchange: {e}")
+
+        # Persist to episodic memory
         try:
             summary = f"User: {user_msg.content[:100]}"
             if len(user_msg.content) > 100:
@@ -515,6 +547,9 @@ class DialogAgent(BaseAgent):
     async def summarize_session(self) -> str | None:
         """Summarize and persist conversation, returns summary text."""
         if len(self.context.conversation) < 2:
+            # Still end the conversation log session even if no summary
+            if self._conversation_log:
+                await self._conversation_log.end_session()
             return None
 
         # Format conversation for summarization
@@ -547,12 +582,25 @@ class DialogAgent(BaseAgent):
             )
             await self.memory.store(entry)
 
+            # End conversation log session with summary
+            if self._conversation_log:
+                await self._conversation_log.end_session(summary=summary, importance=importance)
+
             logger.info(f"Session summarized (importance: {importance:.2f}): {summary[:100]}")
             return summary
 
         except Exception as e:
             logger.warning(f"Failed to summarize session: {e}")
+            # Still try to end the conversation log session
+            if self._conversation_log:
+                await self._conversation_log.end_session()
             return None
+
+    async def close(self) -> None:
+        """Close agent and conversation log."""
+        if self._conversation_log and self._conversation_log_owned:
+            await self._conversation_log.close()
+            self._conversation_log = None
 
     async def _score_importance(self, summary: str) -> float:
         """Score importance of a conversation summary (0.0-1.0)."""

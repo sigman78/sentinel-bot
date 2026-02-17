@@ -46,7 +46,7 @@ async def test_telegramify_splits_long_messages():
 
 
 @pytest.mark.asyncio
-async def test_dialog_agent_channel_capabilities(tmp_path: Path):
+async def test_dialog_agent_channel_capabilities(tmp_path: Path, conversation_log):
     """Test setting channel capabilities on DialogAgent."""
     from sentinel.llm.router import create_default_router
 
@@ -57,7 +57,7 @@ async def test_dialog_agent_channel_capabilities(tmp_path: Path):
     try:
         router = create_default_router()
 
-        agent = DialogAgent(llm=router, memory=memory)
+        agent = DialogAgent(llm=router, memory=memory, conversation_log=conversation_log)
         await agent.initialize()
 
         # Test setting capabilities
@@ -70,7 +70,7 @@ async def test_dialog_agent_channel_capabilities(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_telegram_capabilities_in_system_prompt(tmp_path: Path):
+async def test_telegram_capabilities_in_system_prompt(tmp_path: Path, conversation_log):
     """Test that channel capabilities appear in system prompt."""
     from datetime import datetime
     from uuid import uuid4
@@ -102,7 +102,7 @@ async def test_telegram_capabilities_in_system_prompt(tmp_path: Path):
 
     try:
         mock_llm = MockLLM()
-        agent = DialogAgent(llm=mock_llm, memory=memory)
+        agent = DialogAgent(llm=mock_llm, memory=memory, conversation_log=conversation_log)
         await agent.initialize()
 
         capabilities = "## Channel Capabilities\nTelegram markdown support"
