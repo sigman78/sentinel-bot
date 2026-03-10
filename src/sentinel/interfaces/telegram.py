@@ -56,6 +56,7 @@ class TelegramInterface(Interface):
         self._orchestrator = get_orchestrator()
         self._last_message_time: datetime | None = None
         self._shutdown_event = asyncio.Event()
+        self._paused: bool = False
 
     async def _init_components(self) -> None:
         """Initialize agent and memory store."""
@@ -182,6 +183,7 @@ Format your responses with appropriate markdown for better readability."""
         self.app.add_handler(CommandHandler("tasks", self._handle_tasks))
         self.app.add_handler(CommandHandler("cancel", self._handle_cancel))
         self.app.add_handler(CommandHandler("ctx", self._handle_ctx))
+        self.app.add_handler(CommandHandler("pause", self._handle_pause))
         self.app.add_handler(CommandHandler("kill", self._handle_kill))
         self.app.add_handler(MessageHandler(filters.PHOTO, self._handle_photo))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
@@ -284,7 +286,7 @@ Format your responses with appropriate markdown for better readability."""
 
     async def _run_sleep_cycle(self) -> None:
         """Run sleep agent consolidation if system is idle."""
-        if not self._orchestrator.is_idle():
+        if self._paused or not self._orchestrator.is_idle():
             return
         if self._sleep_agent:
             result = await self._sleep_agent.run_consolidation()
@@ -844,6 +846,13 @@ Agenda Path: `{self.agent._agenda_path}`
 
         await self._safe_reply(update.effective_chat.id, context_info)
 
+    async def _handle_pause(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /pause command - suspend LLM processing until next message."""
+        if not update.effective_user or not self._is_owner(update.effective_user.id):
+            return
+        self._paused = True
+        await update.message.reply_text("Paused. LLM processing suspended until next message.")
+
     async def _handle_kill(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /kill command - gracefully shutdown the bot."""
         if not update.effective_user or not self._is_owner(update.effective_user.id):
@@ -874,6 +883,7 @@ Agenda Path: `{self.agent._agenda_path}`
             BotCommand("cancel", "Cancel task by ID"),
             BotCommand("code", "Execute code in workspace"),
             BotCommand("ctx", "Show debug context"),
+            BotCommand("pause", "Suspend LLM processing until next message"),
             BotCommand("kill", "Gracefully shutdown the bot"),
         ]
 
@@ -947,6 +957,8 @@ Agenda Path: `{self.agent._agenda_path}`
         if not self.agent:
             await update.message.reply_text("Agent not initialized. Please restart.")
             return
+
+        self._paused = False
 
         # Mark activity for background task scheduling
         self._orchestrator.mark_activity()
@@ -1025,6 +1037,8 @@ Agenda Path: `{self.agent._agenda_path}`
         if not self.agent:
             await update.message.reply_text("Agent not initialized. Please restart.")
             return
+
+        self._paused = False
 
         # Mark activity for background task scheduling
         self._orchestrator.mark_activity()
