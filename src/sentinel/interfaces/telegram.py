@@ -155,6 +155,13 @@ Format your responses with appropriate markdown for better readability."""
             interval=timedelta(minutes=30),
             priority=TaskPriority.NORMAL,
         )
+        self._orchestrator.schedule_task(
+            task_id="auto_pause_check",
+            name="Auto-pause check",
+            callback=self._check_auto_pause,
+            interval=timedelta(minutes=30),
+            priority=TaskPriority.LOW,
+        )
         await self._orchestrator.start()
 
         logger.info(f"Initialized with identity: {settings.identity_path}")
@@ -283,6 +290,24 @@ Format your responses with appropriate markdown for better readability."""
         time_gap = (message_time - self._last_message_time).total_seconds()
         # Quote-reply if 5+ minutes since last message (returning to earlier context)
         return time_gap >= 300
+
+    async def _check_auto_pause(self) -> None:
+        """Auto-pause if no user input received within the configured threshold."""
+        if self._paused:
+            return
+        settings = get_settings()
+        if not settings.auto_pause_hours:
+            return
+        if self._last_message_time is None:
+            return
+        elapsed = (datetime.now() - self._last_message_time).total_seconds() / 3600
+        if elapsed >= settings.auto_pause_hours:
+            self._paused = True
+            logger.info(f"Auto-pause triggered after {elapsed:.1f}h of inactivity")
+            await self._send_notification(
+                f"Auto-paused after {settings.auto_pause_hours:.0f}h of inactivity. "
+                "Send any message to resume."
+            )
 
     async def _run_sleep_cycle(self) -> None:
         """Run sleep agent consolidation if system is idle."""

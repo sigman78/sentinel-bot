@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # Limits
     max_context_messages: int = Field(default=20, description="Max messages in context")
     daily_cost_limit: float = Field(default=5.0, description="Daily API cost limit USD")
+    auto_pause_hours: float = Field(
+        default=12.0,
+        description="Auto-pause after this many hours of inactivity (0 = disabled)",
+    )
 
     # LLM Routing
     cost_threshold_downgrade: float = Field(
